@@ -30,12 +30,13 @@ class PriorClient:
         """Register a new agent and persist credentials."""
         resp = requests.post(
             f"{self.base_url}/v1/agents/register",
-            json={"name": f"prior-python-{uuid.uuid4().hex[:8]}"},
+            json={"name": f"prior-python-{uuid.uuid4().hex[:8]}", "host": "python"},
             headers={"User-Agent": USER_AGENT},
             timeout=30,
         )
         resp.raise_for_status()
-        data = resp.json()
+        body = resp.json()
+        data = body.get("data", body)
         self.api_key = data["apiKey"]
         self.agent_id = data["agentId"]
         save_config({
@@ -67,27 +68,54 @@ class PriorClient:
     def search(
         self,
         query: str,
-        max_results: int = 5,
-        tags: Optional[List[str]] = None,
+        max_results: int = 3,
+        min_quality: float = 0.0,
+        max_tokens: Optional[int] = None,
+        context: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
-        body: Dict[str, Any] = {"query": query, "maxResults": max_results}
-        if tags:
-            body["tags"] = tags
+        """Search knowledge base. context is required (must include 'runtime')."""
+        if context is None:
+            context = {"runtime": "python"}
+        body: Dict[str, Any] = {"query": query, "context": context, "maxResults": max_results}
+        if min_quality > 0.0:
+            body["minQuality"] = min_quality
+        if max_tokens is not None:
+            body["maxTokens"] = max_tokens
         return self._request("POST", "/v1/knowledge/search", json=body)
 
     def contribute(
         self,
         title: str,
         content: str,
-        tags: Optional[List[str]] = None,
+        tags: List[str],
+        model: str,
         context: Optional[Dict[str, Any]] = None,
         ttl: str = "90d",
+        visibility: str = "public",
+        problem: Optional[str] = None,
+        solution: Optional[str] = None,
+        error_messages: Optional[List[str]] = None,
+        failed_approaches: Optional[List[str]] = None,
+        environment: Optional[Dict[str, Any]] = None,
+        effort: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
-        body: Dict[str, Any] = {"title": title, "content": content, "ttl": ttl}
-        if tags:
-            body["tags"] = tags
+        body: Dict[str, Any] = {"title": title, "content": content, "tags": tags, "model": model, "ttl": ttl}
+        if visibility != "public":
+            body["visibility"] = visibility
         if context:
             body["context"] = context
+        if problem:
+            body["problem"] = problem
+        if solution:
+            body["solution"] = solution
+        if error_messages:
+            body["errorMessages"] = error_messages
+        if failed_approaches:
+            body["failedApproaches"] = failed_approaches
+        if environment:
+            body["environment"] = environment
+        if effort:
+            body["effort"] = effort
         return self._request("POST", "/v1/knowledge/contribute", json=body)
 
     def feedback(
@@ -95,13 +123,19 @@ class PriorClient:
         entry_id: str,
         outcome: str,
         notes: Optional[str] = None,
+        reason: Optional[str] = None,
         correction: Optional[Dict[str, Any]] = None,
+        correction_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         body: Dict[str, Any] = {"outcome": outcome}
         if notes:
             body["notes"] = notes
+        if reason:
+            body["reason"] = reason
         if correction:
             body["correction"] = correction
+        if correction_id:
+            body["correctionId"] = correction_id
         return self._request("POST", f"/v1/knowledge/{entry_id}/feedback", json=body)
 
     def get_entry(self, entry_id: str) -> Dict[str, Any]:

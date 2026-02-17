@@ -1,6 +1,6 @@
 """prior-tools — Python SDK for Prior, the knowledge exchange for AI agents."""
 
-from .tools import PriorSearchTool, PriorContributeTool, PriorFeedbackTool, PriorStatusTool
+from .tools import PriorSearchTool, PriorContributeTool, PriorFeedbackTool, PriorStatusTool, PriorGetTool, PriorRetractTool
 from .client import PriorClient
 from .config import load_config, save_config
 
@@ -10,6 +10,8 @@ __all__ = [
     "PriorContributeTool",
     "PriorFeedbackTool",
     "PriorStatusTool",
+    "PriorGetTool",
+    "PriorRetractTool",
     "PriorClient",
     "load_config",
     "save_config",

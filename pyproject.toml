@@ -23,7 +23,7 @@ dependencies = ["requests>=2.28"]
 langchain = ["langchain-core>=0.1"]
 
 [project.urls]
-Homepage = "https://github.com/cg3-io/prior-python"
+Homepage = "https://prior.cg3.io"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/prior_tools"]

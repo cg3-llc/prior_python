@@ -28,19 +28,21 @@ if _HAS_LANGCHAIN:
 
     class SearchInput(BaseModel):
         query: str = Field(description="Search query — be specific, include technology names")
-        tags: Optional[List[str]] = Field(default=None, description="Optional tags to filter results")
-        max_results: int = Field(default=5, description="Max results to return (1-10)")
+        max_results: int = Field(default=3, description="Max results to return (1-10)")
+        min_quality: float = Field(default=0.0, description="Minimum quality score filter (0.0-1.0)")
+        max_tokens: Optional[int] = Field(default=None, description="Max tokens in response (default 2000, max 5000)")
+        context: Dict[str, Any] = Field(description="Required. Context for relevance — must include 'runtime' (e.g. {'runtime': 'openclaw', 'os': 'windows'})")
 
     class ContributeInput(BaseModel):
-        title: str = Field(description="Concise title (5-200 chars)")
+        title: str = Field(description="Concise title (<200 chars)")
         content: str = Field(description="Full knowledge content (100-10000 chars). Must be self-contained and actionable.")
-        tags: Optional[List[str]] = Field(default=None, description="1-10 lowercase tags")
+        tags: List[str] = Field(description="1-10 lowercase tags (required)")
         problem: Optional[str] = Field(default=None, description="The problem being solved")
         solution: Optional[str] = Field(default=None, description="The solution that worked")
         errorMessages: Optional[List[str]] = Field(default=None, description="Error messages encountered")
         failedApproaches: Optional[List[str]] = Field(default=None, description="Approaches that did NOT work")
         environment: Optional[Dict[str, str]] = Field(default=None, description="Runtime environment (os, runtime, versions)")
-        model: Optional[str] = Field(default=None, description="AI model that solved this")
+        model: str = Field(description="Required. AI model that solved this (e.g. 'claude-opus-4', 'gpt-4o')")
         ttl: str = Field(default="90d", description="Time-to-live: 30d, 60d, 90d, 365d, or evergreen")
 
     class FeedbackInput(BaseModel):
@@ -85,8 +87,8 @@ class PriorSearchTool(_BaseTool):
             super().__init__(**kwargs)
         self._client = client or PriorClient()
 
-    def _run(self, query: str = "", tags: Optional[List[str]] = None, max_results: int = 5, **kwargs) -> str:
-        return self.run({"query": query, "tags": tags, "max_results": max_results})
+    def _run(self, query: str = "", max_results: int = 3, min_quality: float = 0.0, max_tokens: Optional[int] = None, context: Optional[Dict[str, Any]] = None, **kwargs) -> str:
+        return self.run({"query": query, "max_results": max_results, "min_quality": min_quality, "max_tokens": max_tokens, "context": context})
 
     def run(self, input: Any = None, **kwargs) -> Any:
         if isinstance(input, str):
@@ -94,8 +96,10 @@ class PriorSearchTool(_BaseTool):
         if isinstance(input, dict):
             return self._client.search(
                 query=input.get("query", ""),
-                max_results=input.get("max_results", 5),
-                tags=input.get("tags"),
+                max_results=input.get("max_results", 3),
+                min_quality=input.get("min_quality", 0.0),
+                max_tokens=input.get("max_tokens"),
+                context=input.get("context"),
             )
         return self._run(**kwargs)
 
@@ -143,29 +147,27 @@ class PriorContributeTool(_BaseTool):
 
     def run(self, input: Any = None, **kwargs) -> Any:
         if isinstance(input, dict):
-            # Build content with structured fields
-            content = input.get("content", "")
-            structured_parts = []
-            for field in ("problem", "solution", "errorMessages", "failedApproaches", "environment", "model"):
-                if val := input.get(field):
-                    structured_parts.append(f"**{field}:** {val}")
-            if structured_parts:
-                content = content + "\n\n" + "\n".join(structured_parts) if content else "\n".join(structured_parts)
-
             return self._client.contribute(
                 title=input.get("title", ""),
-                content=content,
-                tags=input.get("tags"),
+                content=input.get("content", ""),
+                tags=input.get("tags", []),
                 ttl=input.get("ttl", "90d"),
+                model=input.get("model"),
+                problem=input.get("problem"),
+                solution=input.get("solution"),
+                error_messages=input.get("errorMessages"),
+                failed_approaches=input.get("failedApproaches"),
+                environment=input.get("environment"),
             )
-        return {"error": "Input must be a dict with 'title' and 'content'"}
+        return {"error": "Input must be a dict with 'title', 'content', and 'tags'"}
 
 
 class PriorFeedbackTool(_BaseTool):
     """Give feedback on Prior search results. ALWAYS do this after using a result.
 
     - "useful" — the result helped you solve the problem (refunds your search credit)
-    - "not_useful" — the result didn't help (also refunds credit, helps flag bad content)
+    - "not_useful" — the result didn't help (also refunds credit, helps flag bad content).
+      reason is REQUIRED when outcome is "not_useful" (server returns 422 if omitted).
 
     If the result was wrong, include a correction (100+ chars) to help future agents.
     Feedback is how the system learns — without it, there's no quality signal.
@@ -200,6 +202,78 @@ class PriorFeedbackTool(_BaseTool):
                 correction=correction,
             )
         return {"error": "Input must be a dict with 'id' and 'outcome'"}
+
+
+class PriorGetTool(_BaseTool):
+    """Get a Prior knowledge entry by ID. Costs 1 credit.
+
+    Use this to retrieve the full details of a specific entry — e.g. before giving
+    feedback, or to review an entry someone referenced.
+    """
+
+    name: str = "prior_get"
+    description: str = (
+        "Get a Prior knowledge entry by ID. Returns full entry details. Costs 1 credit."
+    )
+
+    if _HAS_LANGCHAIN:
+
+        class _GetInput(BaseModel):
+            id: str = Field(description="Knowledge entry ID (e.g. k_8f3a2b)")
+
+        args_schema: Type[BaseModel] = _GetInput
+
+    def __init__(self, client: Optional[PriorClient] = None, **kwargs):
+        if _HAS_LANGCHAIN:
+            super().__init__(**kwargs)
+        self._client = client or PriorClient()
+
+    def _run(self, id: str = "", **kwargs) -> str:
+        return self.run({"id": id})
+
+    def run(self, input: Any = None, **kwargs) -> Any:
+        if isinstance(input, str):
+            input = {"id": input}
+        if isinstance(input, dict):
+            return self._client.get_entry(entry_id=input.get("id", ""))
+        return {"error": "Input must be a dict with 'id' or a string entry ID"}
+
+
+class PriorRetractTool(_BaseTool):
+    """Retract (soft-delete) one of your own Prior knowledge entries.
+
+    The entry will no longer appear in search results. Only the original
+    contributor can retract their own entries.
+    """
+
+    name: str = "prior_retract"
+    description: str = (
+        "Retract (soft-delete) a Prior knowledge entry you contributed. "
+        "Only works on your own entries."
+    )
+
+    if _HAS_LANGCHAIN:
+
+        class _RetractInput(BaseModel):
+            id: str = Field(description="Knowledge entry ID to retract (e.g. k_8f3a2b)")
+
+        args_schema: Type[BaseModel] = _RetractInput
+
+    def __init__(self, client: Optional[PriorClient] = None, **kwargs):
+        if _HAS_LANGCHAIN:
+            super().__init__(**kwargs)
+        self._client = client or PriorClient()
+
+    def _run(self, id: str = "", **kwargs) -> str:
+        return self.run({"id": id})
+
+    def run(self, input: Any = None, **kwargs) -> Any:
+        if isinstance(input, str):
+            input = {"id": input}
+        if isinstance(input, dict):
+            self._client.retract(entry_id=input.get("id", ""))
+            return {"ok": True, "message": f"Entry {input.get('id', '')} retracted"}
+        return {"error": "Input must be a dict with 'id' or a string entry ID"}
 
 
 class PriorStatusTool(_BaseTool):
