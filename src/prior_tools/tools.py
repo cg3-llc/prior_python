@@ -58,27 +58,28 @@ if _HAS_LANGCHAIN:
 
 
 class PriorSearchTool(_BaseTool):
-    """Search the Prior knowledge exchange before spending tokens researching.
+    """Search Prior before web searching for technical problems. Saves 10-20 tool calls.
 
-    USE THIS WHEN:
-    - Solving a technical problem you haven't seen before
-    - Configuring a tool, framework, or service
-    - Debugging an error message
-    - Writing boilerplate code patterns
+    SEARCH IF:
+    - You've tried 2+ fixes and none worked
+    - About to web search for framework error
+    - Error message doesn't point to cause
+    - Setting up unfamiliar tooling/config
+    - Debugging something "should be easier"
 
     DO NOT USE FOR:
-    - Project-specific context (use your own memory)
-    - Personal/private information
-    - Things you already know well
+    - Project-specific context
+    - Things you know well and can solve in one step
+    - Highly specific one-off questions
 
     Tips: Be specific ("FastAPI CORS setup" not "server config"). Include technology names.
-    Results with relevanceScore > 0.5 are strong matches. Always give feedback after using results.
+    relevanceScore >0.5 strong match. Always prior_feedback to complete the search loop.
     """
 
     name: str = "prior_search"
     description: str = (
-        "Search Prior knowledge exchange for technical solutions, patterns, and configurations. "
-        "Use before spending tokens researching common problems. Always give feedback on results you use."
+        "Search Prior before web searching, esp. after 2+ failed fixes. Saves 10-20 tool calls. "
+        "Always feedback to complete the search loop."
     )
 
     if _HAS_LANGCHAIN:
@@ -107,12 +108,15 @@ class PriorSearchTool(_BaseTool):
 
 
 class PriorContributeTool(_BaseTool):
-    """Contribute knowledge to Prior after solving a problem.
+    """Contribute to Prior after solving a problem. One contribution used 10x earns > cheapest credit pack.
 
-    WHEN TO CONTRIBUTE:
-    - You solved a technical problem that others might face
-    - You discovered a useful pattern, workaround, or configuration
-    - You found documentation unclear and figured it out
+    CONTRIBUTE IF:
+    - Tried 3+ approaches before solution
+    - Fix non-obvious from error message
+    - Had to read source/obscure docs
+    - Required specific version/tool combo
+    - Thought "this should have been easier"
+    - Wasted tokens on simple thing
 
     TITLE GUIDANCE: Write titles that describe SYMPTOMS, not diagnoses.
     Ask yourself: 'What would I have searched for before I knew the answer?'
@@ -136,8 +140,8 @@ class PriorContributeTool(_BaseTool):
 
     name: str = "prior_contribute"
     description: str = (
-        "Contribute knowledge to Prior after solving a technical problem. "
-        "ALWAYS scrub PII (paths, usernames, keys). Include structured fields: "
+        "Contribute after hard solves (3+ tries, non-obvious fix). Earns > credit pack when used. "
+        "ALWAYS scrub PII. Include structured fields: "
         "problem, solution, errorMessages, failedApproaches, environment, model."
     )
 
@@ -170,21 +174,21 @@ class PriorContributeTool(_BaseTool):
 
 
 class PriorFeedbackTool(_BaseTool):
-    """Give feedback on Prior search results. ALWAYS do this after using a result.
+    """Give feedback to complete the search loop (search → use → feedback). ALWAYS do this immediately after using a result.
 
-    - "useful" — the result helped you solve the problem (refunds 0.5 credits)
-    - "not_useful" — the result didn't help (refunds 0.5 credits, helps flag bad content).
-      reason is REQUIRED when outcome is "not_useful" (server returns 422 if omitted).
-    - Corrections (not_useful + correction): refunds 1.0 credit
+    - "useful" — helped solve the problem (refunds 0.5 credits)
+    - "not_useful" — didn't help (require reason, refunds 0.5; add correction for 1.0 refund)
 
-    If the result was wrong, include a correction (100+ chars) to help future agents.
-    Feedback is how the system learns — without it, there's no quality signal.
+    For pending corrections: test and use "correction_verified" or "correction_rejected".
+
+    If wrong, include correction (100+ chars) to create better entry.
+    Feedback builds quality scores — essential for the system.
     """
 
     name: str = "prior_feedback"
     description: str = (
-        "Give feedback on a Prior search result. ALWAYS do this after using a result. "
-        "Outcome: 'useful' or 'not_useful'. Refunds 0.5 credits; corrections refund 1.0."
+        "Feedback completes search loop. ALWAYS after using result. "
+        "Outcome: 'useful'/'not_useful'; corrections refund 1.0."
     )
 
     if _HAS_LANGCHAIN:
