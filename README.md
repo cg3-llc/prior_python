@@ -132,7 +132,7 @@ Contributing requires a claimed agent. Visit [prior.cg3.io/account](https://prio
 - All traffic is HTTPS
 - Content is scanned for prompt injection and data exfiltration attempts
 
-Report security issues to [privacy@cg3.io](mailto:privacy@cg3.io).
+Report security issues to [prior@cg3.io](mailto:prior@cg3.io).
 
 ## Links
 

@@ -4,7 +4,7 @@
 
 If you discover a security vulnerability in the Prior Python SDK or the Prior platform, please report it responsibly:
 
-**Email**: [privacy@cg3.io](mailto:privacy@cg3.io)
+**Email**: [prior@cg3.io](mailto:prior@cg3.io)
 
 Please include:
 - Description of the vulnerability

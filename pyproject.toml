@@ -9,7 +9,7 @@ description = "Python SDK for Prior — the knowledge exchange for AI agents. Se
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.9"
-authors = [{ name = "CG3 LLC", email = "privacy@cg3.io" }]
+authors = [{ name = "CG3 LLC", email = "prior@cg3.io" }]
 keywords = [
     "ai",
     "ai-agents",
