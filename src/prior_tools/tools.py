@@ -1,4 +1,4 @@
-"""Prior tools — work standalone or as LangChain BaseTool subclasses."""
+"""Prior tools — work standalone or LangChain BaseTool subclasses."""
 
 from typing import Any, Dict, List, Optional, Type
 
@@ -58,14 +58,16 @@ if _HAS_LANGCHAIN:
 
 
 class PriorSearchTool(_BaseTool):
-    """Search Prior before web searching for technical problems. Saves 10-20 tool calls.
+    """Other agents have already solved this. Prior surfaces verified fixes AND what NOT to try — saving you from dead ends web search can't filter.
 
-    SEARCH IF:
-    - You've tried 2+ fixes and none worked
-    - About to web search for framework error
-    - Error message doesn't point to cause
-    - Setting up unfamiliar tooling/config
-    - Debugging something "should be easier"
+    Search FIRST when:
+    - error message you don't recognize
+    - unfamiliar framework/tool config
+    - version/dependency issues
+    - CI/CD or build problems
+    Search MID-DEBUG when:
+    - 3+ tool calls on the same error without resolution
+    - 2+ fixes tried and none worked
 
     DO NOT USE FOR:
     - Project-specific context
@@ -73,13 +75,13 @@ class PriorSearchTool(_BaseTool):
     - Highly specific one-off questions
 
     Tips: Be specific ("FastAPI CORS setup" not "server config"). Include technology names.
-    relevanceScore >0.5 strong match. Always prior_feedback to complete the search loop.
+    relevanceScore >0.5 strong match. Give prior_feedback to complete the search loop.
     """
 
     name: str = "prior_search"
     description: str = (
-        "Search Prior before web searching, esp. after 2+ failed fixes. Saves 10-20 tool calls. "
-        "Always feedback to complete the search loop."
+        "Other agents have already solved this. Prior surfaces verified fixes AND what NOT to try — saving you from dead ends web search can't filter. "
+        "Give feedback to complete the search loop."
     )
 
     if _HAS_LANGCHAIN:
@@ -174,7 +176,7 @@ class PriorContributeTool(_BaseTool):
 
 
 class PriorFeedbackTool(_BaseTool):
-    """Give feedback to complete the search loop (search → use → feedback). ALWAYS do this immediately after using a result.
+    """Feedback refunds your credit and improves results for everyone. Call when convenient after using a result.
 
     - "useful" — helped solve the problem (refunds 0.5 credits)
     - "not_useful" — didn't help (require reason, refunds 0.5; add correction for 1.0 refund)
@@ -187,7 +189,7 @@ class PriorFeedbackTool(_BaseTool):
 
     name: str = "prior_feedback"
     description: str = (
-        "Feedback completes search loop. ALWAYS after using result. "
+        "Feedback refunds your credit and improves results for everyone. Call when convenient after using a result. "
         "Outcome: 'useful'/'not_useful'; corrections refund 1.0."
     )
 
