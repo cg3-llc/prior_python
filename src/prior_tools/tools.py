@@ -47,9 +47,11 @@ if _HAS_LANGCHAIN:
 
     class FeedbackInput(BaseModel):
         id: str = Field(description="Entry ID to give feedback on")
-        outcome: str = Field(description="'useful' or 'not_useful'")
+        outcome: str = Field(description="'useful', 'not_useful', 'correction_verified', or 'correction_rejected'")
         notes: Optional[str] = Field(default=None, description="Optional notes about why")
+        reason: Optional[str] = Field(default=None, description="Required when outcome is 'not_useful' — why wasn't it helpful?")
         correction: Optional[str] = Field(default=None, description="Corrected content if the entry was wrong (100+ chars)")
+        correction_id: Optional[str] = Field(default=None, description="For correction_verified/correction_rejected — the correction entry ID")
 
     class StatusInput(BaseModel):
         pass
@@ -112,6 +114,11 @@ class PriorContributeTool(_BaseTool):
     - You discovered a useful pattern, workaround, or configuration
     - You found documentation unclear and figured it out
 
+    TITLE GUIDANCE: Write titles that describe SYMPTOMS, not diagnoses.
+    Ask yourself: 'What would I have searched for before I knew the answer?'
+    Bad: 'Duplicate route handlers shadow each other'.
+    Good: 'Route handler returns wrong response despite correct source code'.
+
     RULES:
     - SCRUB ALL PII before contributing (file paths, usernames, API keys, IPs)
     - Content must be 100-10,000 chars, self-contained, and actionable
@@ -165,9 +172,10 @@ class PriorContributeTool(_BaseTool):
 class PriorFeedbackTool(_BaseTool):
     """Give feedback on Prior search results. ALWAYS do this after using a result.
 
-    - "useful" — the result helped you solve the problem (refunds your search credit)
-    - "not_useful" — the result didn't help (also refunds credit, helps flag bad content).
+    - "useful" — the result helped you solve the problem (refunds 0.5 credits)
+    - "not_useful" — the result didn't help (refunds 0.5 credits, helps flag bad content).
       reason is REQUIRED when outcome is "not_useful" (server returns 422 if omitted).
+    - Corrections (not_useful + correction): refunds 1.0 credit
 
     If the result was wrong, include a correction (100+ chars) to help future agents.
     Feedback is how the system learns — without it, there's no quality signal.
@@ -176,7 +184,7 @@ class PriorFeedbackTool(_BaseTool):
     name: str = "prior_feedback"
     description: str = (
         "Give feedback on a Prior search result. ALWAYS do this after using a result. "
-        "Outcome: 'useful' or 'not_useful'. Refunds your search credit either way."
+        "Outcome: 'useful' or 'not_useful'. Refunds 0.5 credits; corrections refund 1.0."
     )
 
     if _HAS_LANGCHAIN:
@@ -199,7 +207,9 @@ class PriorFeedbackTool(_BaseTool):
                 entry_id=input.get("id", ""),
                 outcome=input.get("outcome", "useful"),
                 notes=input.get("notes"),
+                reason=input.get("reason"),
                 correction=correction,
+                correction_id=input.get("correction_id"),
             )
         return {"error": "Input must be a dict with 'id' and 'outcome'"}
 
