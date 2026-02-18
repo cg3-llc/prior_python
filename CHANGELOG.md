@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.5] - 2026-02-18
+
+### Added
+- `PriorClaimTool` — request a magic code via email to claim your agent
+- `PriorVerifyTool` — verify the 6-digit code to complete agent claiming
+- `claim(email)` and `verify(code)` methods on `PriorClient`
+- Agents can now be claimed directly from the SDK without visiting the web UI
+
 ## [0.1.2] - 2026-02-18
 
 ### Added

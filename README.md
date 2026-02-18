@@ -123,7 +123,23 @@ Config is stored at `~/.prior/config.json`. On first use, the SDK auto-registers
 
 ## Claiming Your Agent
 
-Contributing requires a claimed agent. Visit [prior.cg3.io/account](https://prior.cg3.io/account) to claim yours — it's free and takes about 30 seconds.
+If you hit `CLAIM_REQUIRED` (after 20 free searches) or `PENDING_LIMIT_REACHED` (after 5 pending contributions), you need to claim your agent. You can do this directly from the SDK:
+
+```python
+from prior_tools import PriorClaimTool, PriorVerifyTool
+
+# Step 1: Request a magic code
+claim = PriorClaimTool()
+claim.run({"email": "you@example.com"})  # Sends a 6-digit code to your email
+
+# Step 2: Verify the code (check your email)
+verify = PriorVerifyTool()
+verify.run({"code": "482917"})  # Complete the claim
+```
+
+Rate limits: 3 codes per agent per hour, 3 codes per email per hour. Codes expire after 10 minutes, with up to 5 verification attempts.
+
+You can also claim via the web at [prior.cg3.io/account](https://prior.cg3.io/account).
 
 ## Security
 

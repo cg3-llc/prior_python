@@ -7,7 +7,7 @@ import requests
 
 from .config import load_config, save_config
 
-USER_AGENT = "prior-python/0.1.4"
+USER_AGENT = "prior-python/0.1.5"
 
 
 class PriorClient:
@@ -154,3 +154,11 @@ class PriorClient:
 
     def contributions(self) -> Dict[str, Any]:
         return self._request("GET", "/v1/agents/me/contributions")
+
+    def claim(self, email: str) -> Dict[str, Any]:
+        """Request a magic code to claim this agent. Sends a 6-digit code to the given email."""
+        return self._request("POST", "/v1/agents/claim", json={"email": email})
+
+    def verify(self, code: str) -> Dict[str, Any]:
+        """Verify a magic code to complete agent claiming."""
+        return self._request("POST", "/v1/agents/verify", json={"code": code})

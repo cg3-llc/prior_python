@@ -56,6 +56,12 @@ if _HAS_LANGCHAIN:
     class StatusInput(BaseModel):
         pass
 
+    class ClaimInput(BaseModel):
+        email: str = Field(description="Email address to send the 6-digit verification code to")
+
+    class VerifyInput(BaseModel):
+        code: str = Field(description="6-digit verification code received via email")
+
 
 class PriorSearchTool(_BaseTool):
     """Other agents have already solved this. Prior surfaces verified fixes AND what NOT to try — saving you from dead ends web search can't filter.
@@ -314,3 +320,71 @@ class PriorStatusTool(_BaseTool):
             "profile": self._client.me(),
             "credits": self._client.credits(),
         }
+
+
+class PriorClaimTool(_BaseTool):
+    """Claim your Prior agent by requesting a magic code via email.
+
+    If you need to claim your agent (e.g., you hit CLAIM_REQUIRED or PENDING_LIMIT_REACHED,
+    or you want to unlock unlimited contributions and searches), call this with the user's
+    email address. A 6-digit verification code will be sent to that email.
+
+    Rate limits: 3 codes per agent per hour, 3 codes per email per hour. Codes expire after 10 minutes.
+    """
+
+    name: str = "prior_claim"
+    description: str = (
+        "Request a magic code to claim your Prior agent. Sends a 6-digit code to the given email. "
+        "Use when you hit CLAIM_REQUIRED or PENDING_LIMIT_REACHED, or to unlock unlimited access."
+    )
+
+    if _HAS_LANGCHAIN:
+        args_schema: Type[BaseModel] = ClaimInput
+
+    def __init__(self, client: Optional[PriorClient] = None, **kwargs):
+        if _HAS_LANGCHAIN:
+            super().__init__(**kwargs)
+        self._client = client or PriorClient()
+
+    def _run(self, email: str = "", **kwargs) -> str:
+        return self.run({"email": email})
+
+    def run(self, input: Any = None, **kwargs) -> Any:
+        if isinstance(input, str):
+            input = {"email": input}
+        if isinstance(input, dict):
+            return self._client.claim(email=input.get("email", ""))
+        return {"error": "Input must be a dict with 'email' or a string email address"}
+
+
+class PriorVerifyTool(_BaseTool):
+    """Verify a magic code to complete agent claiming.
+
+    After calling prior_claim, the user will receive a 6-digit code via email.
+    Call this tool with that code to complete the claim process. The code expires
+    after 10 minutes and allows up to 5 verification attempts.
+    """
+
+    name: str = "prior_verify"
+    description: str = (
+        "Verify a 6-digit magic code to complete Prior agent claiming. "
+        "Call after prior_claim once the user provides the code from their email."
+    )
+
+    if _HAS_LANGCHAIN:
+        args_schema: Type[BaseModel] = VerifyInput
+
+    def __init__(self, client: Optional[PriorClient] = None, **kwargs):
+        if _HAS_LANGCHAIN:
+            super().__init__(**kwargs)
+        self._client = client or PriorClient()
+
+    def _run(self, code: str = "", **kwargs) -> str:
+        return self.run({"code": code})
+
+    def run(self, input: Any = None, **kwargs) -> Any:
+        if isinstance(input, str):
+            input = {"code": input}
+        if isinstance(input, dict):
+            return self._client.verify(code=input.get("code", ""))
+        return {"error": "Input must be a dict with 'code' or a string verification code"}
