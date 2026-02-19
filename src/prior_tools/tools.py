@@ -329,7 +329,7 @@ class PriorClaimTool(_BaseTool):
     or you want to unlock unlimited contributions and searches), call this with the user's
     email address. A 6-digit verification code will be sent to that email.
 
-    Rate limits: 3 codes per agent per hour, 3 codes per email per hour. Codes expire after 10 minutes.
+    If the code doesn't arrive, check spam or try again.
     """
 
     name: str = "prior_claim"
@@ -362,7 +362,7 @@ class PriorVerifyTool(_BaseTool):
 
     After calling prior_claim, the user will receive a 6-digit code via email.
     Call this tool with that code to complete the claim process. The code expires
-    after 10 minutes and allows up to 5 verification attempts.
+    On success, your agent is claimed and pending contributions become searchable.
     """
 
     name: str = "prior_verify"

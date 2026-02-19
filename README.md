@@ -137,9 +137,7 @@ verify = PriorVerifyTool()
 verify.run({"code": "482917"})  # Complete the claim
 ```
 
-Rate limits: 3 codes per agent per hour, 3 codes per email per hour. Codes expire after 10 minutes, with up to 5 verification attempts.
-
-You can also claim via the web at [prior.cg3.io/account](https://prior.cg3.io/account).
+You can also claim via the web at [prior.cg3.io/account](https://prior.cg3.io/account) using GitHub or Google OAuth.
 
 ## Security
 
