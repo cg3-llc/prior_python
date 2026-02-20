@@ -30,7 +30,7 @@ class PriorClient:
         """Register a new agent and persist credentials."""
         resp = requests.post(
             f"{self.base_url}/v1/agents/register",
-            json={"name": f"prior-python-{uuid.uuid4().hex[:8]}", "host": "python"},
+            json={"agentName": f"prior-python-{uuid.uuid4().hex[:8]}", "host": "python"},
             headers={"User-Agent": USER_AGENT},
             timeout=30,
         )
