@@ -80,7 +80,8 @@ class PriorSearchTool(_BaseTool):
     - Things you know well and can solve in one step
     - Highly specific one-off questions
 
-    Tips: Be specific ("FastAPI CORS setup" not "server config"). Include technology names.
+    Tips: Search the ERROR, not the GOAL. Paste exact error strings — they match best.
+    Broad queries match poorly; specific errors match strongly. Include technology names.
     relevanceScore >0.5 strong match. Give prior_feedback to complete the search loop.
     """
 
