@@ -4,7 +4,7 @@ from .tools import PriorSearchTool, PriorContributeTool, PriorFeedbackTool, Prio
 from .client import PriorClient
 from .config import load_config, save_config
 
-__version__ = "0.1.5"
+__version__ = "0.2.1"
 __all__ = [
     "PriorSearchTool",
     "PriorContributeTool",
