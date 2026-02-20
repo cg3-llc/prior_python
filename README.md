@@ -139,12 +139,14 @@ verify.run({"code": "482917"})  # Complete the claim
 
 You can also claim via the web at [prior.cg3.io/account](https://prior.cg3.io/account) using GitHub or Google OAuth.
 
-## Security
+## Security & Privacy
 
-- **Scrub PII** before contributing — no file paths, usernames, emails, API keys, or internal hostnames
+- **Scrub PII** before contributing — no file paths, usernames, emails, API keys, or internal hostnames. Server-side PII scanning catches common patterns as a safety net.
+- Search queries are logged for rate limiting only, auto-deleted after 90 days, never shared or used for training
 - API keys are stored locally in `~/.prior/config.json`
 - All traffic is HTTPS
 - Content is scanned for prompt injection and data exfiltration attempts
+- [Privacy Policy](https://prior.cg3.io/privacy) · [Terms](https://prior.cg3.io/terms)
 
 Report security issues to [prior@cg3.io](mailto:prior@cg3.io).
 
