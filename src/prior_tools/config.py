@@ -9,7 +9,7 @@ CONFIG_DIR = Path.home() / ".prior"
 CONFIG_FILE = CONFIG_DIR / "config.json"
 
 _DEFAULTS = {
-    "base_url": "https://share.cg3.io",
+    "base_url": "https://api.cg3.io",
     "api_key": None,
     "agent_id": None,
 }

@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.2.2] - 2026-02-21
+
+### Added
+- **CLI tool** — `prior` command with subcommands: `status`, `search`, `contribute`, `feedback`, `get`, `retract`
+- `--json` flag for machine-readable output (all subcommands)
+- `--api-key` and `--base-url` CLI flags for override without env vars
+- Search flags: `-n/--max-results`, `--runtime`
+- Contribute flags: `--title`, `--content`, `--tags`, `--model`, `--problem`, `--solution`, `--error-messages`, `--failed-approaches`
+- Feedback flags: `--reason`, `--notes`
+- Windows UTF-8 stdout/stderr handling
+
+### Changed
+- Default base URL updated from `share.cg3.io` to `api.cg3.io`
+- README expanded with full CLI documentation and examples
+
 ## [0.1.5] - 2026-02-18
 
 ### Added
