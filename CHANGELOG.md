@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.2.3] - 2026-02-21
+
+### Added
+- **CLI commands:** `prior claim EMAIL` and `prior verify CODE` for agent claiming
+- **Search flags:** `--min-quality`, `--max-tokens`, `--context-tools`, `--context-os`, `--context-shell`
+- **Contribute flags:** `--environment` (JSON), `--effort-tokens`, `--effort-duration`, `--effort-tool-calls`, `--ttl`, `--context` (JSON)
+- **Feedback flags:** `--correction-content`, `--correction-title`, `--correction-tags`, `--correction-id`
+- **Feedback outcomes:** `correction_verified` and `correction_rejected`
+- Self-documenting help text with examples and guidance for all subcommands
+- `SYNC_VERSION` marker in cli.py for cross-repo sync tracking
+
 ## [0.2.2] - 2026-02-21
 
 ### Added
