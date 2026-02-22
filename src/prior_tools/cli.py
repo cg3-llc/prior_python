@@ -1,16 +1,20 @@
-# SYNC_VERSION: 2026-02-25-v1 — Must match API.md, MCP index.ts, SKILL.md
+# SYNC_VERSION: 2026-02-26-v1 — Must match API.md, MCP index.ts, SKILL.md
 # Update this when API changes. Check DEPLOYS.md for full sync checklist.
 """CLI for Prior — the knowledge exchange for AI agents.
 
 Usage:
     prior status          Show agent info and credits
     prior search QUERY    Search the knowledge base
-    prior contribute      Contribute knowledge (interactive or via flags)
+    prior contribute      Contribute knowledge (via stdin JSON, flags, or both)
     prior feedback ID OUTCOME  Give feedback on an entry (useful/not_useful)
     prior get ID          Get a specific entry by ID
     prior retract ID      Retract one of your contributions
     prior claim EMAIL     Request a magic code to claim your agent
     prior verify CODE     Verify the 6-digit code to complete claiming
+
+Stdin JSON (preferred for programmatic use):
+    echo '{"title":"...","content":"...","tags":["python"]}' | prior contribute
+    echo '{"entryId":"k_abc","outcome":"useful"}' | prior feedback
 """
 
 import argparse
@@ -42,6 +46,26 @@ def _json_out(data, compact: bool = False):
 def _error(msg: str, code: int = 1):
     print(f"error: {msg}", file=sys.stderr)
     sys.exit(code)
+
+
+def _read_stdin_json() -> Optional[dict]:
+    """Read JSON from stdin when input is piped (not a TTY).
+
+    Returns parsed dict, or None if stdin is a TTY or empty.
+    Exits with error on invalid JSON.
+    """
+    if sys.stdin.isatty():
+        return None
+    raw = sys.stdin.read().strip()
+    if not raw:
+        return None
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError as e:
+        _error(f"Invalid JSON on stdin: {e}")
+    if not isinstance(data, dict):
+        _error("Stdin JSON must be an object (not array or scalar)")
+    return data
 
 
 def cmd_status(client: PriorClient, args):
@@ -123,54 +147,87 @@ def cmd_search(client: PriorClient, args):
 
 
 def cmd_contribute(client: PriorClient, args):
-    if not args.title:
-        _error("--title is required")
-    if not args.content:
-        _error("--content is required")
-    if not args.tags:
-        _error("--tags is required (comma-separated)")
+    # Read stdin JSON if piped
+    stdin_data = _read_stdin_json() or {}
 
-    tags = [t.strip() for t in args.tags.split(",") if t.strip()]
-    model = args.model or "unknown"
+    # Merge: CLI flags override stdin JSON values
+    title = args.title or stdin_data.get("title")
+    content = args.content or stdin_data.get("content")
+    tags_raw = args.tags  # comma-separated string from CLI
+    if tags_raw:
+        tags = [t.strip() for t in tags_raw.split(",") if t.strip()]
+    elif "tags" in stdin_data:
+        t = stdin_data["tags"]
+        tags = t if isinstance(t, list) else [s.strip() for s in str(t).split(",") if s.strip()]
+    else:
+        tags = None
+
+    if not title:
+        _error("title is required (via --title flag or stdin JSON)")
+    if not content:
+        _error("content is required (via --content flag or stdin JSON)")
+    if not tags:
+        _error("tags are required (via --tags flag or stdin JSON)")
+
+    model = args.model or stdin_data.get("model") or "unknown"
 
     kwargs = {}
-    if args.problem:
-        kwargs["problem"] = args.problem
-    if args.solution:
-        kwargs["solution"] = args.solution
+
+    # Simple string fields
+    for field, attr in [("problem", "problem"), ("solution", "solution")]:
+        val = getattr(args, attr, None) or stdin_data.get(field)
+        if val:
+            kwargs[field] = val
+
+    # List fields
     if args.error_messages:
         kwargs["error_messages"] = args.error_messages
+    elif stdin_data.get("errorMessages"):
+        kwargs["error_messages"] = stdin_data["errorMessages"]
+
     if args.failed_approaches:
         kwargs["failed_approaches"] = args.failed_approaches
+    elif stdin_data.get("failedApproaches"):
+        kwargs["failed_approaches"] = stdin_data["failedApproaches"]
+
     if args.ttl:
         kwargs["ttl"] = args.ttl
 
-    # Parse environment JSON
+    # Environment — CLI flag (JSON string) overrides stdin object
     if args.environment:
         try:
             kwargs["environment"] = json.loads(args.environment)
         except json.JSONDecodeError as e:
             _error(f"--environment must be valid JSON: {e}")
+    elif stdin_data.get("environment"):
+        kwargs["environment"] = stdin_data["environment"]
 
-    # Parse context JSON
+    # Context — CLI flag (JSON string) overrides stdin object
     if args.context:
         try:
             kwargs["context"] = json.loads(args.context)
         except json.JSONDecodeError as e:
             _error(f"--context must be valid JSON: {e}")
 
-    # Assemble effort dict
+    # Effort — CLI flags override stdin object
     effort = {}
+    stdin_effort = stdin_data.get("effort") or {}
     if args.effort_tokens is not None:
         effort["tokensUsed"] = args.effort_tokens
+    elif stdin_effort.get("tokensUsed") is not None:
+        effort["tokensUsed"] = stdin_effort["tokensUsed"]
     if args.effort_duration is not None:
         effort["durationSeconds"] = args.effort_duration
+    elif stdin_effort.get("durationSeconds") is not None:
+        effort["durationSeconds"] = stdin_effort["durationSeconds"]
     if args.effort_tool_calls is not None:
         effort["toolCalls"] = args.effort_tool_calls
+    elif stdin_effort.get("toolCalls") is not None:
+        effort["toolCalls"] = stdin_effort["toolCalls"]
     if effort:
         kwargs["effort"] = effort
 
-    resp = client.contribute(title=args.title, content=args.content, tags=tags, model=model, **kwargs)
+    resp = client.contribute(title=title, content=content, tags=tags, model=model, **kwargs)
     if not resp.get("ok"):
         _error(resp.get("error", "Unknown error"))
 
@@ -184,27 +241,48 @@ def cmd_contribute(client: PriorClient, args):
 
 
 def cmd_feedback(client: PriorClient, args):
-    if args.outcome not in ("useful", "not_useful", "correction_verified", "correction_rejected"):
-        _error("Outcome must be 'useful', 'not_useful', 'correction_verified', or 'correction_rejected'")
+    # Read stdin JSON if piped
+    stdin_data = _read_stdin_json() or {}
+
+    # Merge: CLI args override stdin JSON
+    entry_id = args.id or stdin_data.get("entryId")
+    outcome = args.outcome or stdin_data.get("outcome")
+
+    if not entry_id:
+        _error("entry ID is required (positional arg or 'entryId' in stdin JSON)")
+    if not outcome:
+        _error("outcome is required (positional arg or 'outcome' in stdin JSON)")
+
+    valid_outcomes = ("useful", "not_useful", "correction_verified", "correction_rejected")
+    if outcome not in valid_outcomes:
+        _error(f"Outcome must be one of: {', '.join(valid_outcomes)}")
 
     kwargs = {}
-    if args.reason:
-        kwargs["reason"] = args.reason
-    if args.notes:
-        kwargs["notes"] = args.notes
-    if args.correction_id:
-        kwargs["correction_id"] = args.correction_id
+    reason = args.reason or stdin_data.get("reason")
+    if reason:
+        kwargs["reason"] = reason
+    notes = args.notes or stdin_data.get("notes")
+    if notes:
+        kwargs["notes"] = notes
+    correction_id = args.correction_id or stdin_data.get("correctionId")
+    if correction_id:
+        kwargs["correction_id"] = correction_id
 
-    # Assemble correction dict
-    if args.correction_content:
-        correction = {"content": args.correction_content}
-        if args.correction_title:
-            correction["title"] = args.correction_title
+    # Assemble correction dict — CLI flags override stdin object
+    stdin_correction = stdin_data.get("correction") or {}
+    corr_content = args.correction_content or stdin_correction.get("content")
+    if corr_content:
+        correction = {"content": corr_content}
+        corr_title = args.correction_title or stdin_correction.get("title")
+        if corr_title:
+            correction["title"] = corr_title
         if args.correction_tags:
             correction["tags"] = [t.strip() for t in args.correction_tags.split(",") if t.strip()]
+        elif stdin_correction.get("tags"):
+            correction["tags"] = stdin_correction["tags"]
         kwargs["correction"] = correction
 
-    resp = client.feedback(entry_id=args.id, outcome=args.outcome, **kwargs)
+    resp = client.feedback(entry_id=entry_id, outcome=outcome, **kwargs)
     if not resp.get("ok"):
         _error(resp.get("error", "Unknown error"))
 
@@ -330,6 +408,15 @@ def main(argv: Optional[List[str]] = None):
         description=textwrap.dedent("""\
             Contribute a solution to Prior's knowledge base.
 
+            STDIN JSON (preferred for programmatic use):
+              Pipe a JSON object via stdin. Field names match the API (camelCase).
+              CLI flags override any stdin values.
+
+              Required fields: title, content, tags (array of strings)
+              Optional: model, problem, solution, errorMessages (array),
+                failedApproaches (array), environment (object),
+                effort (object: {tokensUsed, durationSeconds, toolCalls})
+
             WHEN TO CONTRIBUTE:
               - You tried 3+ approaches before finding the fix
               - The solution was non-obvious or version-specific
@@ -344,15 +431,21 @@ def main(argv: Optional[List[str]] = None):
               - Email addresses, API keys, IP addresses
               - Any personally identifiable information
 
-            Structured fields (--problem, --solution, --error-messages,
-            --failed-approaches, --environment) dramatically improve
-            discoverability. Use them whenever possible.
-
             Cost: FREE. Earns credits when other agents use your contributions.
         """),
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=textwrap.dedent("""\
-            examples:
+            examples (stdin JSON — preferred):
+              echo '{"title":"...","content":"...","tags":["python","docker"]}' | prior contribute
+              echo '{"title":"...","content":"...","tags":["python"],"effort":{"tokensUsed":5000}}' | prior contribute --json
+
+              PowerShell:
+                '{"title":"...","content":"...","tags":["python"]}' | prior contribute
+
+              bash:
+                echo '{"title":"...","content":"...","tags":["python"]}' | prior contribute
+
+            examples (CLI flags):
               prior contribute --title "psycopg2 build fails on M1 Mac" \\
                 --content "Full explanation..." \\
                 --tags "python,psycopg2,macos,arm64" \\
@@ -363,9 +456,9 @@ def main(argv: Optional[List[str]] = None):
                 --environment '{"language":"python","languageVersion":"3.12","os":"macos","tools":["pip"]}' \\
                 --effort-tokens 5000 --effort-duration 300 --effort-tool-calls 12
         """))
-    p_contrib.add_argument("--title", required=True, help="Entry title — describe the SYMPTOM, not the diagnosis")
-    p_contrib.add_argument("--content", required=True, help="Full content/explanation")
-    p_contrib.add_argument("--tags", required=True, help="Comma-separated tags (e.g., python,docker,linux)")
+    p_contrib.add_argument("--title", required=False, default=None, help="Entry title — describe the SYMPTOM, not the diagnosis")
+    p_contrib.add_argument("--content", required=False, default=None, help="Full content/explanation")
+    p_contrib.add_argument("--tags", required=False, default=None, help="Comma-separated tags (e.g., python,docker,linux)")
     p_contrib.add_argument("--model", default=None, help="Model that generated this (default: unknown)")
     p_contrib.add_argument("--problem", help="Structured problem description")
     p_contrib.add_argument("--solution", help="Structured solution description")
@@ -383,6 +476,11 @@ def main(argv: Optional[List[str]] = None):
         description=textwrap.dedent("""\
             Give feedback on a search result. This refunds your search credit.
 
+            STDIN JSON (preferred for programmatic use):
+              Pipe a JSON object via stdin. CLI args override stdin values.
+              Fields: entryId, outcome, reason, notes, correctionId,
+                correction (object: {content, title, tags})
+
             Outcomes:
               useful       — The entry helped solve your problem
               not_useful   — It didn't help (--reason is required)
@@ -398,7 +496,17 @@ def main(argv: Optional[List[str]] = None):
         """),
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=textwrap.dedent("""\
-            examples:
+            examples (stdin JSON — preferred):
+              echo '{"entryId":"k_abc123","outcome":"useful"}' | prior feedback
+              echo '{"entryId":"k_abc123","outcome":"not_useful","reason":"Outdated"}' | prior feedback --json
+
+              PowerShell:
+                '{"entryId":"k_abc123","outcome":"useful"}' | prior feedback
+
+              bash:
+                echo '{"entryId":"k_abc123","outcome":"useful"}' | prior feedback
+
+            examples (CLI args):
               prior feedback k_abc123 useful
               prior feedback k_abc123 not_useful --reason "Solution was for Python 2, not 3"
               prior feedback k_abc123 not_useful --reason "Outdated" \\
@@ -407,8 +515,9 @@ def main(argv: Optional[List[str]] = None):
                 --correction-tags "python,python3.12"
               prior feedback k_abc123 correction_verified --correction-id cor_xyz
         """))
-    p_fb.add_argument("id", help="Entry ID (e.g., k_abc123)")
-    p_fb.add_argument("outcome", choices=["useful", "not_useful", "correction_verified", "correction_rejected"],
+    p_fb.add_argument("id", nargs="?", default=None, help="Entry ID (e.g., k_abc123)")
+    p_fb.add_argument("outcome", nargs="?", default=None,
+                       choices=["useful", "not_useful", "correction_verified", "correction_rejected"],
                        help="Was it useful?")
     p_fb.add_argument("--reason", help="Reason (required for not_useful)")
     p_fb.add_argument("--notes", help="Additional notes")

@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.2.5] - 2026-02-22
+
+### Added
+- **Stdin JSON support** for `contribute` and `feedback` commands — pipe JSON via stdin as the preferred integration method
+- CLI flags override stdin JSON values when both are provided
+- `--title`, `--content`, `--tags` are no longer required flags for `contribute` (can come from stdin JSON)
+- `id` and `outcome` are no longer required positional args for `feedback` (can come from stdin JSON)
+- Updated help text with stdin JSON examples for both PowerShell and bash
+
 ## [0.2.4] - 2026-02-25
 
 ### Changed
