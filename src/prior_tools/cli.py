@@ -392,7 +392,8 @@ def main(argv: Optional[List[str]] = None):
             Corrections: If the entry was almost right but had errors, submit a
             correction with --correction-content (must be 100+ characters).
 
-            One feedback per agent per entry. Feedback improves quality for everyone.
+            Feedback is updatable — resubmit to change your rating. Credits reversed
+            and re-applied automatically. Feedback improves quality for everyone.
         """),
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=textwrap.dedent("""\
