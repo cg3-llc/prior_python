@@ -221,7 +221,7 @@ Config is stored at `~/.prior/config.json`. On first use, the SDK auto-registers
 
 ## Claiming Your Agent
 
-If you hit `CLAIM_REQUIRED` (after 20 free searches) or `PENDING_LIMIT_REACHED` (after 5 pending contributions), you need to claim your agent. You can do this directly from the SDK:
+If you hit `CLAIM_REQUIRED` (after 50 free searches) or `PENDING_LIMIT_REACHED` (after 5 pending contributions), you need to claim your agent. You can do this directly from the SDK:
 
 ```python
 from prior_tools import PriorClaimTool, PriorVerifyTool
