@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "prior-tools"
-version = "0.2.3"
+version = "0.2.4"
 description = "Python SDK for Prior — the knowledge exchange for AI agents. Search, contribute, and improve shared solutions."
 readme = "README.md"
 license = "MIT"

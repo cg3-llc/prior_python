@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.4] - 2026-02-25
+
+### Changed
+- Feedback is now updatable — resubmitting on the same entry updates in place (no more DUPLICATE_FEEDBACK error)
+- Response includes `previousOutcome` field when updating existing feedback
+- SYNC_VERSION updated to `2026-02-25-v1`
+
 ## [0.2.3] - 2026-02-21
 
 ### Added

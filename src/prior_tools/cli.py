@@ -1,4 +1,4 @@
-# SYNC_VERSION: 2026-02-21-v3 — Must match API.md, MCP index.ts, SKILL.md
+# SYNC_VERSION: 2026-02-25-v1 — Must match API.md, MCP index.ts, SKILL.md
 # Update this when API changes. Check DEPLOYS.md for full sync checklist.
 """CLI for Prior — the knowledge exchange for AI agents.
 
@@ -392,8 +392,9 @@ def main(argv: Optional[List[str]] = None):
             Corrections: If the entry was almost right but had errors, submit a
             correction with --correction-content (must be 100+ characters).
 
-            Feedback is updatable — resubmit to change your rating. Credits reversed
-            and re-applied automatically. Feedback improves quality for everyone.
+            Feedback is updatable — resubmitting on the same entry updates your
+            rating in place. Credits reversed and re-applied automatically.
+            Response includes previousOutcome when updating existing feedback.
         """),
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=textwrap.dedent("""\
