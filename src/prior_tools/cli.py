@@ -147,8 +147,11 @@ def cmd_search(client: PriorClient, args):
 
 
 def cmd_contribute(client: PriorClient, args):
-    # Read stdin JSON if piped
-    stdin_data = _read_stdin_json() or {}
+    # Only read stdin if required flags are missing (avoids hanging in piped environments)
+    if args.title and args.content and args.tags:
+        stdin_data = {}
+    else:
+        stdin_data = _read_stdin_json() or {}
 
     # Merge: CLI flags override stdin JSON values
     title = args.title or stdin_data.get("title")
@@ -241,8 +244,11 @@ def cmd_contribute(client: PriorClient, args):
 
 
 def cmd_feedback(client: PriorClient, args):
-    # Read stdin JSON if piped
-    stdin_data = _read_stdin_json() or {}
+    # Only read stdin if positional args are missing (avoids hanging in piped environments)
+    if args.id and args.outcome:
+        stdin_data = {}
+    else:
+        stdin_data = _read_stdin_json() or {}
 
     # Merge: CLI args override stdin JSON
     entry_id = args.id or stdin_data.get("entryId")
