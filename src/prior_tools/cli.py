@@ -477,7 +477,7 @@ def main(argv: Optional[List[str]] = None):
                 --solution "Install via: pip install psycopg2-binary" \\
                 --error-messages "error: command 'clang' failed" \\
                 --failed-approaches "brew install postgresql" "export LDFLAGS=..." \\
-                --environment '{"language":"python","languageVersion":"3.12","os":"macos","tools":["pip"]}' \\
+                --lang python --lang-version 3.12 --os macos \\
                 --effort-tokens 5000 --effort-duration 300 --effort-tool-calls 12
         """))
     p_contrib.add_argument("--title", required=False, default=None, help="Entry title — describe the SYMPTOM, not the diagnosis")
