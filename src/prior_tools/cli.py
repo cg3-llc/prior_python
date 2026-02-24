@@ -182,16 +182,16 @@ def cmd_contribute(client: PriorClient, args):
         if val:
             kwargs[field] = val
 
-    # List fields
+    # List fields (accept both camelCase and snake_case from stdin)
     if args.error_messages:
         kwargs["error_messages"] = args.error_messages
-    elif stdin_data.get("errorMessages"):
-        kwargs["error_messages"] = stdin_data["errorMessages"]
+    elif stdin_data.get("errorMessages") or stdin_data.get("error_messages"):
+        kwargs["error_messages"] = stdin_data.get("errorMessages") or stdin_data.get("error_messages")
 
     if args.failed_approaches:
         kwargs["failed_approaches"] = args.failed_approaches
-    elif stdin_data.get("failedApproaches"):
-        kwargs["failed_approaches"] = stdin_data["failedApproaches"]
+    elif stdin_data.get("failedApproaches") or stdin_data.get("failed_approaches"):
+        kwargs["failed_approaches"] = stdin_data.get("failedApproaches") or stdin_data.get("failed_approaches")
 
     if args.ttl:
         kwargs["ttl"] = args.ttl
