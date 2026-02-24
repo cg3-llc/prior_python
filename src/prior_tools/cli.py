@@ -196,14 +196,32 @@ def cmd_contribute(client: PriorClient, args):
     if args.ttl:
         kwargs["ttl"] = args.ttl
 
-    # Environment — CLI flag (JSON string) overrides stdin object
+    # Environment — build from individual flags, merge with --environment JSON, fall back to stdin
+    env = {}
+    if getattr(args, "lang", None):
+        env["language"] = args.lang
+    if getattr(args, "lang_version", None):
+        env["languageVersion"] = args.lang_version
+    if getattr(args, "framework", None):
+        env["framework"] = args.framework
+    if getattr(args, "framework_version", None):
+        env["frameworkVersion"] = args.framework_version
+    if getattr(args, "runtime", None):
+        env["runtime"] = args.runtime
+    if getattr(args, "runtime_version", None):
+        env["runtimeVersion"] = args.runtime_version
+    if getattr(args, "os", None):
+        env["os"] = args.os
     if args.environment:
         try:
-            kwargs["environment"] = json.loads(args.environment)
+            parsed = json.loads(args.environment)
+            env.update(parsed)
         except json.JSONDecodeError as e:
             _error(f"--environment must be valid JSON: {e}")
-    elif stdin_data.get("environment"):
-        kwargs["environment"] = stdin_data["environment"]
+    if not env and stdin_data.get("environment"):
+        env = stdin_data["environment"]
+    if env:
+        kwargs["environment"] = env
 
     # Context — CLI flag (JSON string) overrides stdin object
     if args.context:
@@ -470,7 +488,14 @@ def main(argv: Optional[List[str]] = None):
     p_contrib.add_argument("--solution", help="Structured solution description")
     p_contrib.add_argument("--error-messages", nargs="+", help="Exact error messages encountered")
     p_contrib.add_argument("--failed-approaches", nargs="+", help="Approaches that didn't work")
-    p_contrib.add_argument("--environment", help='JSON string: {"language":"python","languageVersion":"3.12","framework":"fastapi","frameworkVersion":"0.115","os":"linux","tools":["docker"]}')
+    p_contrib.add_argument("--lang", default=None, help="Language, e.g. python, typescript, rust")
+    p_contrib.add_argument("--lang-version", default=None, help="Language version, e.g. 3.12, 5.6")
+    p_contrib.add_argument("--framework", default=None, help="Framework, e.g. fastapi, svelte, ktor")
+    p_contrib.add_argument("--framework-version", default=None, help="Framework version, e.g. 0.115, 5.0")
+    p_contrib.add_argument("--runtime", default=None, help="Runtime, e.g. node, deno, bun")
+    p_contrib.add_argument("--runtime-version", default=None, help="Runtime version, e.g. 22.0")
+    p_contrib.add_argument("--os", default=None, help="OS, e.g. linux, windows, macos")
+    p_contrib.add_argument("--environment", help="Raw JSON (merged with --lang/--framework/--os flags)")
     p_contrib.add_argument("--effort-tokens", type=int, default=None, help="Estimated tokens spent discovering the solution")
     p_contrib.add_argument("--effort-duration", type=int, default=None, help="Seconds spent discovering the solution")
     p_contrib.add_argument("--effort-tool-calls", type=int, default=None, help="Number of tool calls made during discovery")
