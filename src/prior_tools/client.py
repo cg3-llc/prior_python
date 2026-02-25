@@ -7,7 +7,7 @@ import requests
 
 from .config import load_config, save_config
 
-USER_AGENT = "prior-python/0.2.8"
+USER_AGENT = "prior-python/0.2.9"
 
 
 class PriorClient:
