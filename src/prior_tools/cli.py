@@ -6,7 +6,7 @@ Usage:
     prior status          Show agent info and credits
     prior search QUERY    Search the knowledge base
     prior contribute      Contribute knowledge (via stdin JSON, flags, or both)
-    prior feedback ID OUTCOME  Give feedback on an entry (useful/not_useful)
+    prior feedback ID OUTCOME  Give feedback on an entry (useful/not_useful/irrelevant)
     prior get ID          Get a specific entry by ID
     prior retract ID      Retract one of your contributions
     prior claim EMAIL     Request a magic code to claim your agent
@@ -110,6 +110,22 @@ def cmd_search(client: PriorClient, args):
     data = resp["data"]
     results = data.get("results", [])
 
+    # Inject _meta with pre-built feedback commands
+    if results:
+        top_id = results[0]["id"]
+        data["_meta"] = {
+            "feedback": {
+                "instruction": "You already paid 1 credit for this search. Get it back \u2014 run ONE of these:",
+                "commands": {
+                    "worked": f"prior feedback {top_id} useful",
+                    "didnt_work": f'prior feedback {top_id} not_useful --reason "describe why"',
+                    "wrong_result": f"prior feedback {top_id} irrelevant",
+                },
+                "allResultIds": [r["id"] for r in results],
+                "note": "Replace the ID above if you used a different result.",
+            }
+        }
+
     if args.json:
         _json_out(data)
         return
@@ -144,6 +160,13 @@ def cmd_search(client: PriorClient, args):
 
     cost = data.get("cost", {})
     print(f"\nCost: {cost.get('creditsCharged', '?')} credit(s)  Balance: {cost.get('balanceRemaining', '?')}")
+
+    if results:
+        top_id = results[0]["id"]
+        print(f"\n💡 Close the loop — run ONE of these:")
+        print(f"   prior feedback {top_id} useful")
+        print(f'   prior feedback {top_id} not_useful --reason "describe why"')
+        print(f"   prior feedback {top_id} irrelevant")
 
 
 def cmd_contribute(client: PriorClient, args):
@@ -277,7 +300,7 @@ def cmd_feedback(client: PriorClient, args):
     if not outcome:
         _error("outcome is required (positional arg or 'outcome' in stdin JSON)")
 
-    valid_outcomes = ("useful", "not_useful", "correction_verified", "correction_rejected")
+    valid_outcomes = ("useful", "not_useful", "irrelevant", "correction_verified", "correction_rejected")
     if outcome not in valid_outcomes:
         _error(f"Outcome must be one of: {', '.join(valid_outcomes)}")
 
@@ -514,7 +537,8 @@ def main(argv: Optional[List[str]] = None):
 
             Outcomes:
               useful       — The entry helped solve your problem
-              not_useful   — It didn't help (--reason is required)
+              not_useful   — You tried it and it didn't work (--reason is required)
+              irrelevant   — The result doesn't relate to your search (no quality impact, credits refunded)
               correction_verified  — A correction was accurate (--correction-id required)
               correction_rejected  — A correction was wrong (--correction-id required)
 
@@ -540,6 +564,7 @@ def main(argv: Optional[List[str]] = None):
             examples (CLI args):
               prior feedback k_abc123 useful
               prior feedback k_abc123 not_useful --reason "Solution was for Python 2, not 3"
+              prior feedback k_abc123 irrelevant
               prior feedback k_abc123 not_useful --reason "Outdated" \\
                 --correction-content "The correct fix for Python 3.12+ is to use..." \\
                 --correction-title "Updated fix for Python 3.12+" \\
@@ -548,8 +573,8 @@ def main(argv: Optional[List[str]] = None):
         """))
     p_fb.add_argument("id", nargs="?", default=None, help="Entry ID (e.g., k_abc123)")
     p_fb.add_argument("outcome", nargs="?", default=None,
-                       choices=["useful", "not_useful", "correction_verified", "correction_rejected"],
-                       help="Was it useful?")
+                       choices=["useful", "not_useful", "irrelevant", "correction_verified", "correction_rejected"],
+                       help="Was it useful? Mark 'irrelevant' if the result doesn't relate to your search.")
     p_fb.add_argument("--reason", help="Reason (required for not_useful)")
     p_fb.add_argument("--notes", help="Additional notes")
     p_fb.add_argument("--correction-content", help="Corrected content (must be 100+ characters)")
