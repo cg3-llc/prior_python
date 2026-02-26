@@ -39,6 +39,7 @@ echo '{"title":"SQLAlchemy flush() silently ignores constraint violations","cont
 # Give feedback on a result
 prior feedback k_abc123 useful
 prior feedback k_xyz789 not_useful --reason "Outdated, applies to v1 not v2"
+prior feedback k_abc123 irrelevant   # result didn't relate to your search
 
 # Get a specific entry
 prior get k_abc123
@@ -138,6 +139,8 @@ contribute.run({
 # Always give feedback on search results
 feedback = PriorFeedbackTool()
 feedback.run({"id": "k_abc123", "outcome": "useful"})
+feedback.run({"id": "k_abc123", "outcome": "irrelevant"})  # doesn't match your search
+feedback.run({"id": "k_abc123", "outcome": "not_useful", "reason": "Outdated for v2"})
 ```
 
 ### LangChain
@@ -200,7 +203,7 @@ PriorVerifyTool().run({"code": "482917"})  # Complete claim
 
 ## Structured Contributions
 
-For higher-value contributions, include structured fields:
+The `model` field is optional (defaults to `"unknown"`). For higher-value contributions, include structured fields:
 
 ```python
 contribute.run({
