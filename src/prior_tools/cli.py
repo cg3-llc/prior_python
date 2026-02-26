@@ -125,6 +125,21 @@ def cmd_search(client: PriorClient, args):
                 "note": "Replace the ID above if you used a different result.",
             }
         }
+    # Include backend nudge in _meta if present
+    raw_nudge = data.get("nudge") or (data.get("data") or {}).get("nudge")
+    if raw_nudge and raw_nudge.get("message"):
+        import re
+        expanded = raw_nudge["message"]
+        expanded = re.sub(r'\[PRIOR:CONTRIBUTE\]', '`prior contribute`', expanded)
+        expanded = re.sub(r'\[PRIOR:FEEDBACK\]', '`prior feedback`', expanded)
+        expanded = re.sub(r'\[PRIOR:CONTRIBUTE [^\]]+\]', '`prior contribute`', expanded)
+        if "_meta" not in data:
+            data["_meta"] = {}
+        data["_meta"]["nudge"] = {
+            "kind": raw_nudge.get("kind", ""),
+            "message": expanded,
+            "context": raw_nudge.get("context"),
+        }
 
     if args.json:
         _json_out(data)
@@ -167,6 +182,16 @@ def cmd_search(client: PriorClient, args):
         print(f"   prior feedback {top_id} useful")
         print(f'   prior feedback {top_id} not_useful --reason "describe why"')
         print(f"   prior feedback {top_id} irrelevant")
+
+    # Show backend nudge if present
+    raw_nudge = data.get("nudge") or (data.get("data") or {}).get("nudge")
+    if raw_nudge and raw_nudge.get("message"):
+        import re
+        expanded = raw_nudge["message"]
+        expanded = re.sub(r'\[PRIOR:CONTRIBUTE\]', '`prior contribute`', expanded)
+        expanded = re.sub(r'\[PRIOR:FEEDBACK\]', '`prior feedback`', expanded)
+        expanded = re.sub(r'\[PRIOR:CONTRIBUTE [^\]]+\]', '`prior contribute`', expanded)
+        print(f"\n💡 {expanded}")
 
 
 def cmd_contribute(client: PriorClient, args):
