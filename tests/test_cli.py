@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from prior_tools.cli import _read_stdin_json, main
+from prior_tools.cli import _read_stdin_json, expand_nudge_tokens, main
 
 
 # ─── Helpers ────────────────────────────────────────────────
@@ -416,3 +416,39 @@ class TestClientInitFailure:
         with patch("prior_tools.cli.PriorClient", side_effect=RuntimeError("no config")):
             with pytest.raises(SystemExit):
                 main(["status"])
+
+
+# ─── expand_nudge_tokens tests ──────────────────────────────
+
+class TestExpandNudgeTokens:
+    def test_expand_contribute(self):
+        assert expand_nudge_tokens("Try [PRIOR:CONTRIBUTE] your fix.") == "Try `prior contribute` your fix."
+
+    def test_expand_feedback(self):
+        assert expand_nudge_tokens("Did it help? [PRIOR:FEEDBACK]") == "Did it help? `prior feedback`"
+
+    def test_expand_parameterized_contribute(self):
+        assert expand_nudge_tokens('[PRIOR:CONTRIBUTE problem="NPE" tags="kotlin"]') == "`prior contribute`"
+
+    def test_expand_multiple_tokens(self):
+        result = expand_nudge_tokens("[PRIOR:CONTRIBUTE] or [PRIOR:FEEDBACK]")
+        assert "`prior contribute`" in result
+        assert "`prior feedback`" in result
+        assert "[PRIOR:" not in result
+
+    def test_none_returns_none(self):
+        assert expand_nudge_tokens(None) is None
+
+    def test_empty_returns_empty(self):
+        assert expand_nudge_tokens("") == ""
+
+    def test_no_tokens_unchanged(self):
+        msg = "Plain message with no tokens."
+        assert expand_nudge_tokens(msg) == msg
+
+    def test_realistic_nudge_message(self):
+        msg = 'Still working on "kotlin NPE"? If you solved it, [PRIOR:CONTRIBUTE] saves others. If a result helped, [PRIOR:FEEDBACK].'
+        result = expand_nudge_tokens(msg)
+        assert "`prior contribute`" in result
+        assert "`prior feedback`" in result
+        assert "kotlin NPE" in result  # original text preserved

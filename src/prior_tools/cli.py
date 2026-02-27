@@ -19,11 +19,22 @@ Stdin JSON (preferred for programmatic use):
 
 import argparse
 import json
+import re
 import sys
 import textwrap
 from typing import List, Optional
 
 from .client import PriorClient
+
+
+def expand_nudge_tokens(message: Optional[str]) -> Optional[str]:
+    """Expand [PRIOR:*] tokens to CLI command syntax."""
+    if not message:
+        return message
+    result = re.sub(r'\[PRIOR:CONTRIBUTE\]', '`prior contribute`', message)
+    result = re.sub(r'\[PRIOR:FEEDBACK\]', '`prior feedback`', result)
+    result = re.sub(r'\[PRIOR:CONTRIBUTE [^\]]+\]', '`prior contribute`', result)
+    return result
 
 
 def _ensure_utf8():
@@ -128,16 +139,11 @@ def cmd_search(client: PriorClient, args):
     # Include backend nudge in _meta if present
     raw_nudge = data.get("nudge") or (data.get("data") or {}).get("nudge")
     if raw_nudge and raw_nudge.get("message"):
-        import re
-        expanded = raw_nudge["message"]
-        expanded = re.sub(r'\[PRIOR:CONTRIBUTE\]', '`prior contribute`', expanded)
-        expanded = re.sub(r'\[PRIOR:FEEDBACK\]', '`prior feedback`', expanded)
-        expanded = re.sub(r'\[PRIOR:CONTRIBUTE [^\]]+\]', '`prior contribute`', expanded)
         if "_meta" not in data:
             data["_meta"] = {}
         data["_meta"]["nudge"] = {
             "kind": raw_nudge.get("kind", ""),
-            "message": expanded,
+            "message": expand_nudge_tokens(raw_nudge["message"]),
             "context": raw_nudge.get("context"),
         }
 
@@ -186,12 +192,7 @@ def cmd_search(client: PriorClient, args):
     # Show backend nudge if present
     raw_nudge = data.get("nudge") or (data.get("data") or {}).get("nudge")
     if raw_nudge and raw_nudge.get("message"):
-        import re
-        expanded = raw_nudge["message"]
-        expanded = re.sub(r'\[PRIOR:CONTRIBUTE\]', '`prior contribute`', expanded)
-        expanded = re.sub(r'\[PRIOR:FEEDBACK\]', '`prior feedback`', expanded)
-        expanded = re.sub(r'\[PRIOR:CONTRIBUTE [^\]]+\]', '`prior contribute`', expanded)
-        print(f"\n💡 {expanded}")
+        print(f"\n💡 {expand_nudge_tokens(raw_nudge['message'])}")
 
 
 def cmd_contribute(client: PriorClient, args):
