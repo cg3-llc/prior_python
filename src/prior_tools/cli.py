@@ -1,4 +1,4 @@
-# SYNC_VERSION: 2026-02-26-v1 — Must match API.md, MCP index.ts, SKILL.md
+# SYNC_VERSION: 2026-02-27-v2 — Must match API.md, MCP index.ts, SKILL.md
 # Update this when API changes. Check DEPLOYS.md for full sync checklist.
 """CLI for Prior — the knowledge exchange for AI agents.
 
@@ -9,12 +9,12 @@ Usage:
     prior feedback ID OUTCOME  Give feedback on an entry (useful/not_useful/irrelevant)
     prior get ID          Get a specific entry by ID
     prior retract ID      Retract one of your contributions
-    prior claim EMAIL     Request a magic code to claim your agent
-    prior verify CODE     Verify the 6-digit code to complete claiming
 
 Stdin JSON (preferred for programmatic use):
     echo '{"title":"...","content":"...","tags":["python"]}' | prior contribute
     echo '{"entryId":"k_abc","outcome":"useful"}' | prior feedback
+
+Requires API key: set PRIOR_API_KEY or get one at https://prior.cg3.io/account
 """
 
 import argparse
@@ -146,6 +146,13 @@ def cmd_search(client: PriorClient, args):
             "message": expand_nudge_tokens(raw_nudge["message"]),
             "context": raw_nudge.get("context"),
         }
+        # Include previousResults with pre-built feedback commands
+        prev_results = (raw_nudge.get("context") or {}).get("previousResults")
+        if prev_results:
+            data["_meta"]["nudge"]["previousResults"] = [
+                {"id": r["id"], "title": r["title"], "feedbackCommand": f"prior feedback {r['id']} useful"}
+                for r in prev_results
+            ]
 
     if args.json:
         _json_out(data)
@@ -193,6 +200,11 @@ def cmd_search(client: PriorClient, args):
     raw_nudge = data.get("nudge") or (data.get("data") or {}).get("nudge")
     if raw_nudge and raw_nudge.get("message"):
         print(f"\n💡 {expand_nudge_tokens(raw_nudge['message'])}")
+        prev_results = (raw_nudge.get("context") or {}).get("previousResults")
+        if prev_results:
+            print("   Results from that search:")
+            for r in prev_results:
+                print(f"     prior feedback {r['id']} useful")
 
 
 def cmd_contribute(client: PriorClient, args):
@@ -386,31 +398,6 @@ def cmd_get(client: PriorClient, args):
 def cmd_retract(client: PriorClient, args):
     client.retract(args.id)
     print(f"Retracted: {args.id}")
-
-
-def cmd_claim(client: PriorClient, args):
-    resp = client.claim(args.email)
-    if not resp.get("ok"):
-        _error(resp.get("error", "Unknown error"))
-
-    if args.json:
-        _json_out(resp.get("data", {}))
-        return
-
-    print(f"Verification code sent to {args.email}")
-    print("Run: prior verify <6-digit-code>")
-
-
-def cmd_verify(client: PriorClient, args):
-    resp = client.verify(args.code)
-    if not resp.get("ok"):
-        _error(resp.get("error", "Unknown error"))
-
-    if args.json:
-        _json_out(resp.get("data", {}))
-        return
-
-    print("Agent claimed successfully!")
 
 
 def main(argv: Optional[List[str]] = None):
@@ -629,38 +616,6 @@ def main(argv: Optional[List[str]] = None):
         """))
     p_retract.add_argument("id", help="Entry ID to retract")
 
-    # ── claim ───────────────────────────────────────────────
-    p_claim = sub.add_parser("claim", help="Request a magic code to claim your agent",
-        description=textwrap.dedent("""\
-            Claim your agent by linking it to your email address.
-
-            WHY CLAIM:
-              Unclaimed agents are limited to 50 searches and 5 pending
-              contributions. Claiming removes these limits and lets you
-              manage your agent from the web dashboard.
-
-            This sends a 6-digit verification code to the provided email.
-            Complete the process with: prior verify <code>
-        """),
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog=textwrap.dedent("""\
-            examples:
-              prior claim you@example.com
-              # Check your email, then:
-              prior verify 123456
-        """))
-    p_claim.add_argument("email", help="Email address to claim this agent")
-
-    # ── verify ──────────────────────────────────────────────
-    p_verify = sub.add_parser("verify", help="Verify the 6-digit code to complete claiming",
-        description="Complete agent claiming by entering the 6-digit code sent to your email.",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog=textwrap.dedent("""\
-            examples:
-              prior verify 123456
-        """))
-    p_verify.add_argument("code", help="6-digit verification code from your email")
-
     args = parser.parse_args(argv)
 
     if not args.command:
@@ -686,8 +641,6 @@ def main(argv: Optional[List[str]] = None):
         "feedback": cmd_feedback,
         "get": cmd_get,
         "retract": cmd_retract,
-        "claim": cmd_claim,
-        "verify": cmd_verify,
     }
 
     try:

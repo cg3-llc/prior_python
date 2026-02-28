@@ -34,8 +34,6 @@ def mock_client(**overrides):
         "tags": ["python"], "content": "Some content",
     }}
     c.retract.return_value = None
-    c.claim.return_value = {"ok": True, "data": {}}
-    c.verify.return_value = {"ok": True, "data": {}}
     for k, v in overrides.items():
         getattr(c, k).return_value = v
     return c
@@ -352,29 +350,6 @@ class TestRetract:
         client.retract.assert_called_once_with("k_abc")
 
 
-# ─── cmd_claim / cmd_verify ────────────────────────────────
-
-class TestClaimVerify:
-    def test_claim_output(self, client, monkeypatch, capsys):
-        run_cli(["claim", "a@b.com"], client, monkeypatch)
-        out = capsys.readouterr().out
-        assert "a@b.com" in out
-        client.claim.assert_called_once_with("a@b.com")
-
-    def test_verify_output(self, client, monkeypatch, capsys):
-        run_cli(["verify", "123456"], client, monkeypatch)
-        assert "claimed successfully" in capsys.readouterr().out
-        client.verify.assert_called_once_with("123456")
-
-    def test_claim_json(self, client, monkeypatch, capsys):
-        run_cli(["--json", "claim", "a@b.com"], client, monkeypatch)
-        json.loads(capsys.readouterr().out)  # should be valid JSON
-
-    def test_verify_json(self, client, monkeypatch, capsys):
-        run_cli(["--json", "verify", "123456"], client, monkeypatch)
-        json.loads(capsys.readouterr().out)
-
-
 # ─── Help text ──────────────────────────────────────────────
 
 class TestHelp:
@@ -386,8 +361,6 @@ class TestHelp:
         (["feedback", "--help"], ["outcome", "useful"]),
         (["get", "--help"], ["entry"]),
         (["retract", "--help"], ["retract"]),
-        (["claim", "--help"], ["email"]),
-        (["verify", "--help"], ["code"]),
     ])
     def test_help_contains_keywords(self, cmd, keywords, monkeypatch, capsys):
         with pytest.raises(SystemExit) as exc_info:
@@ -452,3 +425,85 @@ class TestExpandNudgeTokens:
         assert "`prior contribute`" in result
         assert "`prior feedback`" in result
         assert "kotlin NPE" in result  # original text preserved
+
+
+# ─── Nudge previousResults passthrough tests ─────────────
+
+class TestNudgePreviousResults:
+    def test_previousResults_in_meta(self, monkeypatch, capsys):
+        nudge = {
+            "kind": "feedback_reminder",
+            "message": "Your search returned 2 results.",
+            "context": {
+                "previousSearchId": "s_123",
+                "previousQuery": "CORS error",
+                "previousResultCount": 2,
+                "minutesAgo": 15,
+                "previousResults": [
+                    {"id": "k_abc", "title": "Fix CORS in FastAPI"},
+                    {"id": "k_def", "title": "CORS headers missing"},
+                ],
+            },
+        }
+        c = mock_client(search={"ok": True, "data": {
+            "results": [{"id": "k_abc", "title": "Fix CORS in FastAPI", "relevanceScore": 0.85,
+                          "trustLevel": "high", "tags": ["py"]}],
+            "cost": {"creditsCharged": 1, "balanceRemaining": 41},
+            "nudge": nudge,
+        }})
+        run_cli(["--json", "search", "CORS error"], c, monkeypatch)
+        data = json.loads(capsys.readouterr().out)
+        meta_nudge = data.get("_meta", {}).get("nudge", {})
+        assert "previousResults" in meta_nudge
+        assert len(meta_nudge["previousResults"]) == 2
+        assert meta_nudge["previousResults"][0]["id"] == "k_abc"
+        assert meta_nudge["previousResults"][0]["title"] == "Fix CORS in FastAPI"
+        assert meta_nudge["previousResults"][0]["feedbackCommand"] == "prior feedback k_abc useful"
+        assert meta_nudge["previousResults"][1]["feedbackCommand"] == "prior feedback k_def useful"
+
+    def test_no_previousResults_when_absent(self, monkeypatch, capsys):
+        nudge = {
+            "kind": "contribute_reminder",
+            "message": "No results for your query.",
+            "context": {
+                "previousSearchId": "s_456",
+                "previousQuery": "zig segfault",
+                "previousResultCount": 0,
+                "minutesAgo": 30,
+            },
+        }
+        c = mock_client(search={"ok": True, "data": {
+            "results": [{"id": "k_xyz", "title": "Zig crash", "relevanceScore": 0.5,
+                          "trustLevel": "low", "tags": ["zig"]}],
+            "cost": {"creditsCharged": 1, "balanceRemaining": 40},
+            "nudge": nudge,
+        }})
+        run_cli(["--json", "search", "zig segfault"], c, monkeypatch)
+        data = json.loads(capsys.readouterr().out)
+        meta_nudge = data.get("_meta", {}).get("nudge", {})
+        assert "previousResults" not in meta_nudge
+
+    def test_previousResults_displayed_to_stderr(self, monkeypatch, capsys):
+        nudge = {
+            "kind": "feedback_reminder",
+            "message": "Your search returned results.",
+            "context": {
+                "previousSearchId": "s_789",
+                "previousQuery": "test query",
+                "previousResultCount": 1,
+                "minutesAgo": 10,
+                "previousResults": [
+                    {"id": "k_test", "title": "Test entry"},
+                ],
+            },
+        }
+        c = mock_client(search={"ok": True, "data": {
+            "results": [{"id": "k_test", "title": "Test entry", "relevanceScore": 0.9,
+                          "trustLevel": "high", "tags": ["test"]}],
+            "cost": {"creditsCharged": 1, "balanceRemaining": 39},
+            "nudge": nudge,
+        }})
+        run_cli(["search", "test query"], c, monkeypatch)
+        out = capsys.readouterr()
+        assert "Results from that search:" in out.out
+        assert "prior feedback k_test useful" in out.out

@@ -1,6 +1,5 @@
 """HTTP client for the Prior API."""
 
-import uuid
 from typing import Any, Dict, List, Optional
 
 import requests
@@ -24,26 +23,10 @@ class PriorClient:
         self.agent_id = config.get("agent_id")
 
         if not self.api_key:
-            self._auto_register()
-
-    def _auto_register(self) -> None:
-        """Register a new agent and persist credentials."""
-        resp = requests.post(
-            f"{self.base_url}/v1/agents/register",
-            json={"agentName": f"prior-python-{uuid.uuid4().hex[:8]}", "host": "python"},
-            headers={"User-Agent": USER_AGENT},
-            timeout=30,
-        )
-        resp.raise_for_status()
-        body = resp.json()
-        data = body.get("data", body)
-        self.api_key = data["apiKey"]
-        self.agent_id = data["agentId"]
-        save_config({
-            "base_url": self.base_url,
-            "api_key": self.api_key,
-            "agent_id": self.agent_id,
-        })
+            raise RuntimeError(
+                "No API key configured. Get one at https://prior.cg3.io/account "
+                "then set PRIOR_API_KEY or add it to ~/.prior/config.json"
+            )
 
     def _headers(self) -> Dict[str, str]:
         return {
@@ -155,10 +138,3 @@ class PriorClient:
     def contributions(self) -> Dict[str, Any]:
         return self._request("GET", "/v1/agents/me/contributions")
 
-    def claim(self, email: str) -> Dict[str, Any]:
-        """Request a magic code to claim this agent. Sends a 6-digit code to the given email."""
-        return self._request("POST", "/v1/agents/claim", json={"email": email})
-
-    def verify(self, code: str) -> Dict[str, Any]:
-        """Verify a magic code to complete agent claiming."""
-        return self._request("POST", "/v1/agents/verify", json={"code": code})

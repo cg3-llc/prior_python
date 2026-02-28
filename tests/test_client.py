@@ -74,19 +74,12 @@ class TestFeedback:
             assert body["outcome"] == "useful"
 
 
-class TestAutoRegister:
-    def test_auto_register_when_no_key(self):
+class TestNoApiKey:
+    def test_raises_when_no_key(self):
         config = {"base_url": "https://test.example.com", "api_key": None, "agent_id": None}
-        reg_resp = MagicMock()
-        reg_resp.json.return_value = {"apiKey": "ask_new", "agentId": "ag_new"}
-        reg_resp.raise_for_status = MagicMock()
-
-        with patch("prior_tools.client.load_config", return_value=config), \
-             patch("prior_tools.client.save_config") as mock_save, \
-             patch("requests.post", return_value=reg_resp):
-            c = PriorClient()
-            assert c.api_key == "ask_new"
-            mock_save.assert_called_once()
+        with patch("prior_tools.client.load_config", return_value=config):
+            with pytest.raises(RuntimeError, match="No API key configured"):
+                PriorClient()
 
 
 class TestStatus:
