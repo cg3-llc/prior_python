@@ -28,7 +28,12 @@ import sys
 import textwrap
 import threading
 import time
+import warnings
 import webbrowser
+
+# Suppress Pydantic V1 deprecation warning from langchain on Python 3.14+
+# (langchain is an optional dependency; this warning is not actionable by us)
+warnings.filterwarnings("ignore", message=".*Pydantic V1.*")
 from base64 import urlsafe_b64encode
 from typing import List, Optional
 from urllib.parse import parse_qs, urlparse
@@ -592,7 +597,8 @@ def cmd_logout(args):
 def cmd_whoami(args):
     """Show current identity and auth method."""
     config = load_config()
-    has_tokens = bool(config.get("tokens", {}).get("access_token"))
+    tokens = config.get("tokens") or {}
+    has_tokens = bool(tokens.get("access_token"))
     has_api_key = bool(os.environ.get("PRIOR_API_KEY") or config.get("api_key"))
 
     if not has_tokens and not has_api_key:

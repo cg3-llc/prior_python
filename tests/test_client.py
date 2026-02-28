@@ -78,7 +78,7 @@ class TestNoApiKey:
     def test_raises_when_no_key(self):
         config = {"base_url": "https://test.example.com", "api_key": None, "agent_id": None}
         with patch("prior_tools.client.load_config", return_value=config):
-            with pytest.raises(RuntimeError, match="No API key configured"):
+            with pytest.raises(RuntimeError, match="No auth configured"):
                 PriorClient()
 
 
