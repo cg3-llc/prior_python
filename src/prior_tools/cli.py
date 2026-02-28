@@ -410,6 +410,71 @@ def cmd_retract(client: PriorClient, args):
     print(f"Retracted: {args.id}")
 
 
+def _login_page_html(status: str, message: str) -> bytes:
+    """Generate a branded HTML page for login callback results."""
+    is_success = status == "success"
+    icon_color = "#34d399" if is_success else "#f87171"
+    icon_path = (
+        '<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="M22 4 12 14.01l-3-3"/>'
+        if is_success
+        else '<circle cx="12" cy="12" r="10"/><path d="M15 9l-6 6"/><path d="M9 9l6 6"/>'
+    )
+    title = "Login Successful" if is_success else "Login Failed"
+    glow_color = "rgba(52,211,153,.25)" if is_success else "rgba(248,113,113,.25)"
+    icon_bg = "rgba(52,211,153,.12)" if is_success else "rgba(248,113,113,.12)"
+    hint = (
+        '<div class="hint">You can close this window and return to your terminal.</div>'
+        if is_success
+        else ""
+    )
+
+    html = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{title} - Prior</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{{margin:0;padding:0;box-sizing:border-box}}
+body{{font-family:'Inter',system-ui,-apple-system,sans-serif;font-size:.9375rem;line-height:1.6;background:#08090e;color:#e8eaf0;min-height:100vh;display:flex;align-items:center;justify-content:center;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}}
+body::before{{content:'';position:fixed;inset:0;z-index:-1;opacity:.015;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");pointer-events:none}}
+body::after{{content:'';position:fixed;top:-10%;left:50%;transform:translateX(-50%);width:80%;height:60%;background:radial-gradient(ellipse 80% 60% at 50% 0%,rgba(94,164,248,.07) 0%,transparent 70%);pointer-events:none;z-index:-1}}
+.container{{max-width:440px;width:100%;padding:0 20px;text-align:center;animation:fadeIn .4s cubic-bezier(.4,0,.2,1) forwards}}
+@keyframes fadeIn{{from{{opacity:0;transform:translateY(8px)}}to{{opacity:1;transform:translateY(0)}}}}
+.logo{{margin-bottom:32px;font-family:'Space Grotesk',system-ui,sans-serif;font-size:1.625rem;font-weight:700;letter-spacing:-.02em;color:#e8eaf0}}
+.card{{position:relative;background:linear-gradient(135deg,#101320,#161a28);border-radius:14px;border:1px solid #181c2c;padding:40px 32px;box-shadow:0 8px 30px rgba(0,0,0,.6)}}
+.card::before{{content:'';position:absolute;inset:0;border-radius:inherit;padding:1px;background:linear-gradient(135deg,rgba(94,164,248,.3),rgba(56,240,208,.15));mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);mask-composite:exclude;-webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);-webkit-mask-composite:xor;pointer-events:none}}
+.icon-circle{{width:56px;height:56px;border-radius:50%;background:{icon_bg};display:inline-flex;align-items:center;justify-content:center;margin-bottom:20px;box-shadow:0 0 20px {glow_color}}}
+.icon-circle svg{{color:{icon_color}}}
+h1{{font-family:'Space Grotesk',system-ui,sans-serif;font-size:1.3125rem;font-weight:700;letter-spacing:-.02em;margin-bottom:8px;color:#e8eaf0}}
+.message{{color:#a8adc0;font-size:.8125rem;line-height:1.6}}
+.hint{{margin-top:20px;padding:12px 16px;background:rgba(8,9,14,.6);border-radius:10px;border:1px solid #181c2c;font-size:.75rem;color:#5e6580}}
+.footer{{font-size:.75rem;color:#5e6580;margin-top:20px}}
+.footer a{{color:#5ea4f8;text-decoration:none}}
+@media(max-width:480px){{.card{{padding:32px 20px}}}}
+@media(prefers-reduced-motion:reduce){{.container{{animation:none}}}}
+::selection{{background:rgba(94,164,248,.4);color:inherit}}
+</style>
+</head>
+<body>
+<div class="container">
+<div class="logo">Prior</div>
+<div class="card">
+<div class="icon-circle"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">{icon_path}</svg></div>
+<h1>{title}</h1>
+<p class="message">{message}</p>
+{hint}
+</div>
+<p class="footer">&copy; 2026 CG3 LLC &middot; <a href="https://prior.cg3.io">prior.cg3.io</a></p>
+</div>
+</body>
+</html>"""
+    return html.encode("utf-8")
+
+
 def cmd_login(args):
     """Authenticate via browser OAuth flow."""
     import requests as req
@@ -442,14 +507,14 @@ def cmd_login(args):
                 self.send_response(200)
                 self.send_header("Content-Type", "text/html")
                 self.end_headers()
-                self.wfile.write(b"<html><body><h1>Login Failed</h1><p>You can close this window.</p></body></html>")
+                self.wfile.write(_login_page_html("error", "Authentication was denied or failed. You can close this window."))
                 return
 
             result["code"] = params.get("code", [None])[0]
             self.send_response(200)
             self.send_header("Content-Type", "text/html")
             self.end_headers()
-            self.wfile.write(b"<html><body><h1>Login Successful!</h1><p>You can close this window.</p></body></html>")
+            self.wfile.write(_login_page_html("success", "You have been authenticated successfully. Your OAuth tokens have been saved locally."))
 
         def log_message(self, format, *a):
             pass  # Suppress request logs
