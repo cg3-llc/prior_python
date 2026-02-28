@@ -12,6 +12,7 @@ _DEFAULTS = {
     "base_url": "https://api.cg3.io",
     "api_key": None,
     "agent_id": None,
+    "tokens": None,  # OAuth tokens: { access_token, refresh_token, expires_at, client_id }
 }
 
 

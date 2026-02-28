@@ -18,13 +18,23 @@ Requires API key: set PRIOR_API_KEY or get one at https://prior.cg3.io/account
 """
 
 import argparse
+import hashlib
+import http.server
 import json
+import os
 import re
+import secrets
 import sys
 import textwrap
+import threading
+import time
+import webbrowser
+from base64 import urlsafe_b64encode
 from typing import List, Optional
+from urllib.parse import parse_qs, urlparse
 
 from .client import PriorClient
+from .config import load_config, save_config
 
 
 def expand_nudge_tokens(message: Optional[str]) -> Optional[str]:
@@ -400,6 +410,151 @@ def cmd_retract(client: PriorClient, args):
     print(f"Retracted: {args.id}")
 
 
+def cmd_login(args):
+    """Authenticate via browser OAuth flow."""
+    import requests as req
+
+    config = load_config()
+    base_url = config.get("base_url", "https://api.cg3.io")
+
+    # Generate PKCE
+    code_verifier = secrets.token_urlsafe(32)
+    code_challenge = urlsafe_b64encode(
+        hashlib.sha256(code_verifier.encode("ascii")).digest()
+    ).rstrip(b"=").decode("ascii")
+    state = secrets.token_hex(16)
+    client_id = "prior-cli"
+
+    result = {"code": None, "error": None}
+    server_ready = threading.Event()
+
+    class CallbackHandler(http.server.BaseHTTPRequestHandler):
+        def do_GET(self):
+            parsed = urlparse(self.path)
+            if parsed.path != "/callback":
+                self.send_response(404)
+                self.end_headers()
+                return
+
+            params = parse_qs(parsed.query)
+            if "error" in params:
+                result["error"] = params["error"][0]
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html")
+                self.end_headers()
+                self.wfile.write(b"<html><body><h1>Login Failed</h1><p>You can close this window.</p></body></html>")
+                return
+
+            result["code"] = params.get("code", [None])[0]
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html")
+            self.end_headers()
+            self.wfile.write(b"<html><body><h1>Login Successful!</h1><p>You can close this window.</p></body></html>")
+
+        def log_message(self, format, *a):
+            pass  # Suppress request logs
+
+    server = http.server.HTTPServer(("127.0.0.1", 0), CallbackHandler)
+    port = server.server_address[1]
+    redirect_uri = f"http://127.0.0.1:{port}/callback"
+
+    authorize_url = (
+        f"{base_url}/authorize?response_type=code&client_id={client_id}"
+        f"&redirect_uri={redirect_uri}&code_challenge={code_challenge}"
+        f"&code_challenge_method=S256&state={state}"
+    )
+
+    print("Opening browser for authentication...", file=sys.stderr)
+    print(f"If the browser doesn't open, visit: {authorize_url}", file=sys.stderr)
+    webbrowser.open(authorize_url)
+
+    # Wait for callback (timeout after 5 min)
+    server.timeout = 300
+    server.handle_request()
+    server.server_close()
+
+    if result["error"]:
+        _error(f"Login failed: {result['error']}")
+    if not result["code"]:
+        _error("Login failed: no code received")
+
+    # Exchange code for tokens
+    resp = req.post(f"{base_url}/token", data={
+        "grant_type": "authorization_code",
+        "code": result["code"],
+        "redirect_uri": redirect_uri,
+        "code_verifier": code_verifier,
+        "client_id": client_id,
+    }, headers={"Content-Type": "application/x-www-form-urlencoded"}, timeout=15)
+
+    data = resp.json()
+    if "access_token" not in data:
+        _error(f"Token exchange failed: {data.get('error_description', data.get('error', 'unknown'))}")
+
+    config["tokens"] = {
+        "access_token": data["access_token"],
+        "refresh_token": data.get("refresh_token"),
+        "expires_at": time.time() * 1000 + data.get("expires_in", 3600) * 1000,
+        "client_id": client_id,
+    }
+    save_config(config)
+    print("Login successful! OAuth tokens saved to ~/.prior/config.json", file=sys.stderr)
+
+
+def cmd_logout(args):
+    """Revoke tokens and log out."""
+    import requests as req
+
+    config = load_config()
+    base_url = config.get("base_url", "https://api.cg3.io")
+
+    if config.get("tokens", {}).get("refresh_token"):
+        try:
+            req.post(f"{base_url}/revoke",
+                data={"token": config["tokens"]["refresh_token"]},
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
+                timeout=10)
+        except Exception:
+            pass
+
+    if "tokens" in config:
+        del config["tokens"]
+        save_config(config)
+
+    print("Logged out. OAuth tokens cleared.")
+
+
+def cmd_whoami(args):
+    """Show current identity and auth method."""
+    config = load_config()
+    has_tokens = bool(config.get("tokens", {}).get("access_token"))
+    has_api_key = bool(os.environ.get("PRIOR_API_KEY") or config.get("api_key"))
+
+    if not has_tokens and not has_api_key:
+        print("Not authenticated. Run 'prior login' or set PRIOR_API_KEY.")
+        return
+
+    auth_method = "OAuth" if has_tokens else "API Key"
+
+    try:
+        client = PriorClient()
+        resp = client.me()
+        if resp.get("ok") and resp.get("data"):
+            d = resp["data"]
+            print(f"Auth method: {auth_method}")
+            print(f"Agent ID:    {d['agentId']}")
+            print(f"Name:        {d.get('agentName', '?')}")
+            if d.get("email"):
+                print(f"Email:       {d['email']}")
+            print(f"Credits:     {d['credits']}")
+        else:
+            print(f"Auth method: {auth_method}")
+            print(f"Status: Unable to verify identity")
+    except Exception as e:
+        print(f"Auth method: {auth_method}")
+        print(f"Error: {e}")
+
+
 def main(argv: Optional[List[str]] = None):
     _ensure_utf8()
     parser = argparse.ArgumentParser(
@@ -616,11 +771,33 @@ def main(argv: Optional[List[str]] = None):
         """))
     p_retract.add_argument("id", help="Entry ID to retract")
 
+    # ── login ──────────────────────────────────────────────
+    sub.add_parser("login", help="Authenticate via browser (OAuth)",
+        description="Open a browser to sign in with GitHub or Google. "
+            "Stores OAuth tokens locally for seamless authentication.")
+
+    # ── logout ─────────────────────────────────────────────
+    sub.add_parser("logout", help="Revoke tokens and log out",
+        description="Revoke OAuth tokens and clear local credentials.")
+
+    # ── whoami ─────────────────────────────────────────────
+    sub.add_parser("whoami", help="Show current identity",
+        description="Show your current authentication method and agent info.")
+
     args = parser.parse_args(argv)
 
     if not args.command:
         parser.print_help()
         sys.exit(0)
+
+    # Commands that don't need a client
+    no_client_commands = {"login": cmd_login, "logout": cmd_logout, "whoami": cmd_whoami}
+    if args.command in no_client_commands:
+        try:
+            no_client_commands[args.command](args)
+        except Exception as e:
+            _error(str(e))
+        return
 
     # Build client with optional overrides
     client_kwargs = {}

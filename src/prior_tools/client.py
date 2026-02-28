@@ -1,18 +1,20 @@
 """HTTP client for the Prior API."""
 
+import time
 from typing import Any, Dict, List, Optional
 
 import requests
 
 from .config import load_config, save_config
 
-USER_AGENT = "prior-python/0.3.1"
+USER_AGENT = "prior-python/0.4.0"
 
 
 class PriorClient:
     """Low-level client for the Prior knowledge exchange API.
 
     Handles authentication, auto-registration, and all API calls.
+    Auth precedence: OAuth token > API key > error.
     Config is loaded from ~/.prior/config.json (or env vars).
     """
 
@@ -21,16 +23,56 @@ class PriorClient:
         self.base_url = (base_url or config.get("base_url", "")).rstrip("/")
         self.api_key = api_key or config.get("api_key")
         self.agent_id = config.get("agent_id")
+        self._tokens = config.get("tokens")
 
-        if not self.api_key:
+        if not self._get_auth_token():
             raise RuntimeError(
-                "No API key configured. Get one at https://prior.cg3.io/account "
-                "then set PRIOR_API_KEY or add it to ~/.prior/config.json"
+                "No auth configured. Run 'prior login' or set PRIOR_API_KEY. "
+                "Get an API key at https://prior.cg3.io/account"
             )
 
+    def _get_auth_token(self) -> Optional[str]:
+        """Get the best available auth token (OAuth > API key)."""
+        if self._tokens and self._tokens.get("access_token"):
+            return self._tokens["access_token"]
+        return self.api_key
+
+    def _refresh_if_needed(self) -> None:
+        """Refresh OAuth access token if expired."""
+        if not self._tokens or not self._tokens.get("refresh_token"):
+            return
+        expires_at = self._tokens.get("expires_at", 0)
+        if time.time() * 1000 < expires_at - 60000:
+            return  # Not expired yet (with 60s buffer)
+
+        try:
+            resp = requests.post(
+                f"{self.base_url}/token",
+                data={
+                    "grant_type": "refresh_token",
+                    "refresh_token": self._tokens["refresh_token"],
+                    "client_id": self._tokens.get("client_id", "prior-cli"),
+                },
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
+                timeout=15,
+            )
+            data = resp.json()
+            if "access_token" in data:
+                self._tokens["access_token"] = data["access_token"]
+                if "refresh_token" in data:
+                    self._tokens["refresh_token"] = data["refresh_token"]
+                self._tokens["expires_at"] = time.time() * 1000 + data.get("expires_in", 3600) * 1000
+                config = load_config()
+                config["tokens"] = self._tokens
+                save_config(config)
+        except Exception:
+            pass  # Fall through with existing token
+
     def _headers(self) -> Dict[str, str]:
+        self._refresh_if_needed()
+        token = self._get_auth_token()
         return {
-            "Authorization": f"Bearer {self.api_key}",
+            "Authorization": f"Bearer {token}" if token else "",
             "User-Agent": USER_AGENT,
             "Content-Type": "application/json",
         }
