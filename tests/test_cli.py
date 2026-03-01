@@ -426,6 +426,24 @@ class TestExpandNudgeTokens:
         assert "`prior feedback`" in result
         assert "kotlin NPE" in result  # original text preserved
 
+    def test_expand_parameterized_feedback_useful(self):
+        result = expand_nudge_tokens("Try [PRIOR:FEEDBACK:useful:k_abc123]")
+        assert result == "Try `prior feedback k_abc123 useful`"
+
+    def test_expand_parameterized_feedback_not_useful(self):
+        result = expand_nudge_tokens("[PRIOR:FEEDBACK:not_useful:k_abc123]")
+        assert result == '`prior feedback k_abc123 not_useful --reason "describe what you tried"`'
+
+    def test_expand_parameterized_feedback_irrelevant(self):
+        result = expand_nudge_tokens("[PRIOR:FEEDBACK:irrelevant:k_abc123]")
+        assert result == "`prior feedback k_abc123 irrelevant`"
+
+    def test_expand_mixed_parameterized_and_generic(self):
+        result = expand_nudge_tokens("[PRIOR:FEEDBACK:useful:k_abc] or [PRIOR:CONTRIBUTE]")
+        assert "`prior feedback k_abc useful`" in result
+        assert "`prior contribute`" in result
+        assert "[PRIOR:" not in result
+
 
 # ─── Nudge previousResults passthrough tests ─────────────
 

@@ -46,7 +46,12 @@ def expand_nudge_tokens(message: Optional[str]) -> Optional[str]:
     """Expand [PRIOR:*] tokens to CLI command syntax."""
     if not message:
         return message
-    result = re.sub(r'\[PRIOR:CONTRIBUTE\]', '`prior contribute`', message)
+    # Parameterized feedback with entry ID (Phase 1)
+    result = re.sub(r'\[PRIOR:FEEDBACK:useful:([^\]]+)\]', r'`prior feedback \1 useful`', message)
+    result = re.sub(r'\[PRIOR:FEEDBACK:not_useful:([^\]]+)\]', r'`prior feedback \1 not_useful --reason "describe what you tried"`', result)
+    result = re.sub(r'\[PRIOR:FEEDBACK:irrelevant:([^\]]+)\]', r'`prior feedback \1 irrelevant`', result)
+    # Generic (non-parameterized) fallback
+    result = re.sub(r'\[PRIOR:CONTRIBUTE\]', '`prior contribute`', result)
     result = re.sub(r'\[PRIOR:FEEDBACK\]', '`prior feedback`', result)
     result = re.sub(r'\[PRIOR:CONTRIBUTE [^\]]+\]', '`prior contribute`', result)
     return result
