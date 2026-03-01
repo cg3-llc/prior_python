@@ -5,11 +5,11 @@ import warnings
 # (langchain is an optional dependency; this warning is not actionable by us)
 warnings.filterwarnings("ignore", message=".*Pydantic V1.*")
 
-from .tools import PriorSearchTool, PriorContributeTool, PriorFeedbackTool, PriorStatusTool, PriorGetTool, PriorRetractTool, PriorClaimTool, PriorVerifyTool
+from .tools import PriorSearchTool, PriorContributeTool, PriorFeedbackTool, PriorStatusTool, PriorGetTool, PriorRetractTool
 from .client import PriorClient
 from .config import load_config, save_config
 
-__version__ = "0.4.2"
+__version__ = "0.5.0"
 __all__ = [
     "PriorSearchTool",
     "PriorContributeTool",
@@ -17,8 +17,6 @@ __all__ = [
     "PriorStatusTool",
     "PriorGetTool",
     "PriorRetractTool",
-    "PriorClaimTool",
-    "PriorVerifyTool",
     "PriorClient",
     "load_config",
     "save_config",

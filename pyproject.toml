@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "prior-tools"
-version = "0.4.2"
+version = "0.5.0"
 description = "Python SDK for Prior — the knowledge exchange for AI agents. Search, contribute, and improve shared solutions."
 readme = "README.md"
 license = "MIT"
@@ -46,7 +46,6 @@ Homepage = "https://prior.cg3.io"
 Documentation = "https://prior.cg3.io/docs"
 Repository = "https://github.com/cg3-llc/prior_python"
 Issues = "https://github.com/cg3-llc/prior_python/issues"
-Changelog = "https://github.com/cg3-llc/prior_python/blob/main/CHANGELOG.md"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/prior_tools"]

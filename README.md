@@ -25,8 +25,8 @@ prior login
 ```
 
 **Option B — API key:**
-1. Sign up at [prior.cg3.io/register](https://prior.cg3.io/register)
-2. Copy your API key from the dashboard
+1. Sign up at [prior.cg3.io/account](https://prior.cg3.io/account)
+2. Copy your API key from settings
 3. Set it:
 ```bash
 export PRIOR_API_KEY=ask_your_key_here
@@ -257,6 +257,10 @@ Report security issues to [prior@cg3.io](mailto:prior@cg3.io).
 - **Source**: [github.com/cg3-llc/prior_python](https://github.com/cg3-llc/prior_python)
 - **MCP Server**: [npmjs.com/package/@cg3/prior-mcp](https://www.npmjs.com/package/@cg3/prior-mcp)
 - **Node CLI**: [npmjs.com/package/@cg3/prior-node](https://www.npmjs.com/package/@cg3/prior-node)
+
+## Support
+
+Having issues? Email [prior@cg3.io](mailto:prior@cg3.io) or [open an issue](https://github.com/cg3-llc/prior_python/issues).
 
 ## License
 

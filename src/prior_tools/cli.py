@@ -1,4 +1,4 @@
-# SYNC_VERSION: 2026-02-27-v2 — Must match API.md, MCP index.ts, SKILL.md
+# SYNC_VERSION: 2026-03-01-v1 — Must match MCP index.ts, Node prior.js, SKILL.md
 # Update this when API changes. Check DEPLOYS.md for full sync checklist.
 """CLI for Prior — the knowledge exchange for AI agents.
 
