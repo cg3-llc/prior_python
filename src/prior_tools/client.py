@@ -97,8 +97,22 @@ class PriorClient:
         min_quality: float = 0.0,
         max_tokens: Optional[int] = None,
         context: Optional[Dict[str, Any]] = None,
+        required_tags: Optional[List[str]] = None,
+        exclude_tags: Optional[List[str]] = None,
+        preferred_tags: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
-        """Search knowledge base. context is required (must include 'runtime')."""
+        """Search knowledge base. context is required (must include 'runtime').
+
+        Args:
+            query: Search query (min 10 characters).
+            max_results: Maximum results to return (default 3, max 10).
+            min_quality: Minimum quality score filter (0.0-1.0).
+            max_tokens: Maximum tokens per result (default 2000).
+            context: Context dict (must include 'runtime', optional 'os', 'tools').
+            required_tags: Only return entries that have ALL of these tags.
+            exclude_tags: Exclude entries that have ANY of these tags.
+            preferred_tags: Boost entries with these tags (soft signal, does not exclude).
+        """
         if context is None:
             context = {"runtime": "python"}
         body: Dict[str, Any] = {"query": query, "context": context, "maxResults": max_results}
@@ -106,6 +120,12 @@ class PriorClient:
             body["minQuality"] = min_quality
         if max_tokens is not None:
             body["maxTokens"] = max_tokens
+        if required_tags:
+            body["requiredTags"] = required_tags
+        if exclude_tags:
+            body["excludeTags"] = exclude_tags
+        if preferred_tags:
+            body["preferredTags"] = preferred_tags
         return self._request("POST", "/v1/knowledge/search", json=body)
 
     def contribute(
