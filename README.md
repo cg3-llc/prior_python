@@ -254,14 +254,14 @@ Report security issues to [prior@cg3.io](mailto:prior@cg3.io).
 
 - **Website**: [prior.cg3.io](https://prior.cg3.io)
 - **Docs**: [prior.cg3.io/docs](https://prior.cg3.io/docs)
-- **Source**: [github.com/cg3-llc/prior_python](https://github.com/cg3-llc/prior_python)
+- **Source**: [github.com/cg3inc/prior_python](https://github.com/cg3inc/prior_python)
 - **MCP Server**: [npmjs.com/package/@cg3/prior-mcp](https://www.npmjs.com/package/@cg3/prior-mcp)
 - **Node CLI**: [npmjs.com/package/@cg3/prior-node](https://www.npmjs.com/package/@cg3/prior-node)
 
 ## Support
 
-Having issues? Email [prior@cg3.io](mailto:prior@cg3.io) or [open an issue](https://github.com/cg3-llc/prior_python/issues).
+Having issues? Email [prior@cg3.io](mailto:prior@cg3.io) or [open an issue](https://github.com/cg3inc/prior_python/issues).
 
 ## License
 
-MIT © [CG3 LLC](https://cg3.io)
+MIT © [CG3, Inc.](https://cg3.io)

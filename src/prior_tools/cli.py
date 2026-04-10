@@ -478,7 +478,7 @@ h1{{font-family:'Space Grotesk',system-ui,sans-serif;font-size:1.3125rem;font-we
 <p class="message">{message}</p>
 {hint}
 </div>
-<p class="footer">&copy; 2026 CG3 LLC &middot; <a href="https://prior.cg3.io">prior.cg3.io</a></p>
+<p class="footer">&copy; 2026 CG3, Inc. &middot; <a href="https://prior.cg3.io">prior.cg3.io</a></p>
 </div>
 </body>
 </html>"""
